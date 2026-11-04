@@ -151,7 +151,7 @@
 需要 Node.js 和 [Wrangler](https://developers.cloudflare.com/workers/wrangler/)。
 
 ```bash
-wrangler dev --port 8812
+wrangler dev --port 8821
 ```
 
 重新生成规则介绍页：
@@ -166,9 +166,9 @@ python3 tools/build_guide.py tools/讲解稿.md public/guide.html tools/faq.json
 
 ```bash
 node tests/test_logic.mjs                                                  # 剧本数据校验 + 规则单元测试（不需要服务器）
-node tests/test_leak.mjs http://localhost:8812/                            # 10 个剧本各一局：公开视图拿不到隐藏信息
-node tests/test_game.mjs http://localhost:8812/ ./shots                    # 两台手机打完一局「初学者剧本」
-node tests/test_chat.mjs http://localhost:8812/ ./shots --mock-upstream    # 规则助手（wrangler dev 需加 --test-scheduled --var DEEPSEEK_API_KEY:fake --var DEEPSEEK_BASE:http://127.0.0.1:8813 --var CHAT_CF_MODEL:@cf/none/missing）
+node tests/test_leak.mjs http://localhost:8821/                            # 10 个剧本各一局：公开视图拿不到隐藏信息
+node tests/test_game.mjs http://localhost:8821/ ./shots                    # 两台手机打完一局「初学者剧本」
+node tests/test_chat.mjs http://localhost:8821/ ./shots --mock-upstream    # 规则助手（wrangler dev 需加 --test-scheduled --var DEEPSEEK_API_KEY:fake --var DEEPSEEK_BASE:http://127.0.0.1:8822 --var CHAT_CF_MODEL:@cf/none/missing）
 node tests/test_chat.mjs https://你的域名/ ./shots --live                   # 规则助手线上实问一次
 ```
 

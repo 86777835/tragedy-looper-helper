@@ -7,7 +7,7 @@
 import { SCRIPTS, ROLES, PLOTS, CHARS, LOCS } from '../public/data.js';
 import { reminders, PHASES } from '../public/logic.js';
 
-const base = process.argv[2] || 'http://localhost:8812/';
+const base = process.argv[2] || 'http://localhost:8821/';
 const wsUrl = c => new URL(`/api/room/${c}/ws`, base).href.replace(/^http/, 'ws');
 let fails = 0;
 const ok = (name, cond, extra = '') => { if (!cond) fails++; console.log(cond ? 'PASS' : 'FAIL', name, cond ? '' : extra); };

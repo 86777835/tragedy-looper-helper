@@ -1,6 +1,6 @@
 // Rules assistant. Usage: node tests/test_chat.mjs <base-url> <shots-dir> [--mock-upstream | --live]
-//   --mock-upstream  local `wrangler dev --port 8812 --test-scheduled --var DEEPSEEK_API_KEY:fake --var DEEPSEEK_BASE:http://127.0.0.1:8813 --var CHAT_CF_MODEL:@cf/none/missing`
-//                    (DeepSeek is a mock on 8813; the Cloudflare model points at a missing one so it always fails fast)
+//   --mock-upstream  local `wrangler dev --port 8821 --test-scheduled --var DEEPSEEK_API_KEY:fake --var DEEPSEEK_BASE:http://127.0.0.1:8822 --var CHAT_CF_MODEL:@cf/none/missing`
+//                    (DeepSeek is a mock on 8822; the Cloudflare model points at a missing one so it always fails fast)
 //                    checks: request validation, model fallback, stalls, the hourly check, and that the rules mode
 //                    (the one Protagonists can see) carries no script data while the Mastermind's script mode does.
 //   --live           the deployed site with a real key: one real question.
@@ -45,7 +45,7 @@ const srv = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     res.end(`data: ${JSON.stringify({ choices: [{ delta: { content: `${j.model} 的回答` } }] })}\n\ndata: [DONE]\n\n`);
   });
-}).listen(8813);
+}).listen(8822);
 
 // request checks (rejected before the rate limit counts nothing upstream)
 eq('empty messages rejected', (await post({ messages: [] })).status, 400);
