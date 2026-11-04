@@ -10,6 +10,8 @@
 
 「匹兹堡开局小助手」的姊妹站。
 
+**[立即使用 → tl.leisurecat.cloud](https://tl.leisurecat.cloud)**
+
 <img src="docs/screenshots/landing.jpg" width="260" alt="首页">
 
 </div>
@@ -174,12 +176,16 @@ node tests/test_chat.mjs https://你的域名/ ./shots --live                   
 
 ## 部署
 
-还没有部署。部署前需要决定 Worker 名字、自定义域名，并在 `wrangler.jsonc` 里：
+线上地址：[tl.leisurecat.cloud](https://tl.leisurecat.cloud)（Worker `tragedy-looper-helper`）。
 
-- 把 `name` 改成正式的 Worker 名；
-- 创建 KV 命名空间（`wrangler kv namespace create CHAT_STATE`），把 `id` 换成真实的；
-- 需要自定义域名时加上 `routes`；
-- 部署后设置规则助手的密钥：`wrangler secret put DEEPSEEK_API_KEY --name <Worker 名>`。不配置时助手会提示“还没有配置好”。
+```bash
+wrangler deploy
+```
+
+自己部署时：
+- **域名**：去掉或改掉 `wrangler.jsonc` 里的自定义域名 `tl.leisurecat.cloud`，以及 `public/index.html`、`tools/build_guide.py` 里 og:image 的地址。
+- **KV**：用 `wrangler kv namespace create` 建一个命名空间，把 `wrangler.jsonc` 里 `CHAT_STATE` 的 `id` 换成你的。
+- **规则助手**（可选）：运行 `wrangler secret put DEEPSEEK_API_KEY` 填入你的 DeepSeek API 密钥；不配置时助手会提示“还没有配置好”。
 
 ## 声明
 
