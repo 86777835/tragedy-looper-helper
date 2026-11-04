@@ -95,8 +95,8 @@ const bar = () => `<div class="bar" data-k="bar"><span class="ttl">惨剧轮回<
 
 function landing() {
   const my = mine();
-  return `<div class="hero-art" data-k="hero"><img src="img/hero.jpg" alt=""><div class="ht">
-      <div class="wm">TRAGEDY LOOPER</div><div class="hr"></div><div class="hz">惨剧轮回剧作家助手</div><div class="hs">设好剧本 · 算清惨剧</div></div></div>
+  return `<div class="hero-art cover" data-k="hero"><img src="img/hero.jpg" alt=""><div class="ht">
+      <div class="hz">惨剧轮回剧作家助手</div><div class="hs">设好剧本 · 算清惨剧</div></div></div>
     <div class="wrap" data-k="landing">
     <div class="card start">
       <button class="btn" data-act="create" ${ui.busy ? 'disabled' : ''}>我当剧作家：创建房间</button>
@@ -112,7 +112,7 @@ function landing() {
     <h2 class="h"><span>我的房间</span><small>本机当剧作家的房间</small></h2>
     <div class="list">${my.length ? my.map(r => `<button class="card lobby" data-act="rejoin" data-code="${r.code}" data-k="lb-${r.code}">
         <span class="lc">${r.code}</span><span class="lp">剧作家</span><span class="ls">${ago(r.t)}</span></button>`).join('') : '<div class="empty">还没有房间</div>'}</div>
-    <footer>非官方玩家工具 · 规则依据《惨剧RoopeR 5th》官方资料</footer></div>`;
+    <footer>非官方玩家工具 · 规则依据《惨剧RoopeR 5th》官方资料<br>封面为官方盒封面（Z-Man Games 英文版）的高清化版本，版权归原权利人</footer></div>`;
 }
 function ago(t) { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.floor(m / 60)} 小时前` : `${Math.floor(m / 1440)} 天前`; }
 
