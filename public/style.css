@@ -389,3 +389,22 @@ body.has-chat{padding-bottom:72px}
   .loc{padding-left:4px;padding-right:4px}
   .cc{font-size:12px;padding:3px 4px}.tk{min-width:17px;height:17px;font-size:11px;padding:0 3px}
 }
+
+/* rating card (results) */
+.rv{padding:14px 12px 12px}
+.rv-l{font:600 13.5px var(--sans);color:var(--ink2);margin-bottom:7px}
+.rv-who{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.rv-who button{height:38px;padding:0 14px;border-radius:19px;border:1px solid var(--line2);background:rgba(255,255,255,.04);font:600 14.5px var(--sans)}
+.rv-who button.on{border-color:var(--violet2);background:var(--violet);color:#fff}
+.rv-name{margin-bottom:10px;height:42px;font-weight:500}
+.rv-st{display:flex;align-items:center;gap:2px;margin-bottom:10px}
+.rv-st button{width:42px;height:42px;border:0;background:none;font-size:34px;line-height:1;color:rgba(255,255,255,.18);padding:0}
+.rv-st button.on{color:#f0c24b;text-shadow:0 0 12px rgba(240,194,75,.35)}
+.rv-st span{margin-left:8px;font:700 15px var(--serif);color:var(--ink2)}
+.rv textarea{width:100%;min-height:80px;margin-bottom:4px;padding:10px 12px;border-radius:8px;border:1px solid var(--line2);background:rgba(0,0,0,.3);font:16px/1.6 var(--sans);color:var(--ink);resize:vertical;outline:none}
+.rv textarea:focus{border-color:var(--violet2)}
+.rv .err{margin-top:8px}
+.rv-done{text-align:center;font-size:32px;letter-spacing:4px;color:#f0c24b}
+.rv p{text-align:center;margin:6px 0 10px;font:700 16px var(--serif)}
+.rv .note{text-align:left;margin:10px 0 0;font:500 13px/1.6 var(--sans)}
+.rv .btns .btn{height:44px;margin-top:0;line-height:42px;font-size:14.5px;letter-spacing:1px}

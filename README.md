@@ -85,6 +85,10 @@
 <img src="docs/screenshots/results.jpg" width="260" alt="结算页">
 </p>
 
+### 给这款游戏打分
+
+结算页（剧作家视图和公开视图都有）有一张评价卡：先选“我是”（剧作家视图固定是“剧作家”，公开视图选“主人公 1/2/3”，也可以填名字），再点 1–5 星、写一句评论，提交到总入口「桌游小助手」（[boardgame.leisurecat.cloud](https://boardgame.leisurecat.cloud)）的统一评价接口，计入这款游戏的平均分。评价卡在结算长图区域外，请求里只有星数、名字、评论和房间码，不含任何剧本信息。已提交的状态按房间存在本机，可以修改。
+
 ### 公开视图（主人公 / 投屏）
 
 主人公扫码或输入房间码进入，只看到：公开信息卡（模组、轮回数、天数、特殊规则、事件日程和本轮回是否已发生）、当前轮回/天/阶段、版图和指示物、死亡、剧作家公开过的身份/当事人/规则X、每轮回的胜负。剧作家手机上点「看公开视图」可以开一个投屏用的页面。
@@ -170,6 +174,7 @@ python3 tools/build_guide.py tools/讲解稿.md public/guide.html tools/faq.json
 node tests/test_logic.mjs                                                  # 剧本数据校验 + 规则单元测试（不需要服务器）
 node tests/test_leak.mjs http://localhost:8821/                            # 10 个剧本各一局：公开视图拿不到隐藏信息
 node tests/test_game.mjs http://localhost:8821/ ./shots                    # 两台手机打完一局「初学者剧本」
+node tests/test_review.mjs http://localhost:8821/ ./shots                  # 结算页评价卡（拦截总入口接口，不写线上数据）
 node tests/test_chat.mjs http://localhost:8821/ ./shots --mock-upstream    # 规则助手（wrangler dev 需加 --test-scheduled --var DEEPSEEK_API_KEY:fake --var DEEPSEEK_BASE:http://127.0.0.1:8822 --var CHAT_CF_MODEL:@cf/none/missing）
 node tests/test_chat.mjs https://你的域名/ ./shots --live                   # 规则助手线上实问一次
 ```

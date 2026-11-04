@@ -33,7 +33,7 @@ const viewOnly = qs.get('v') === '1';   // the Mastermind's own phone showing th
 { const k = new URLSearchParams(location.hash.slice(1)).get('k'); if (code && /^[0-9a-f]{32}$/.test(k || '')) { remember(code, k); history.replaceState(null, '', location.pathname + location.search); } }
 
 let S = null, role = null, noRoom = false, online = false, ws = null, queue = [], retry = 0;
-const ui = { tab: 'game', sheet: null, err: '', busy: false, all: false, place: {}, saving: false, fx: {} };
+const ui = { tab: 'game', sheet: null, err: '', busy: false, all: false, place: {}, saving: false, fx: {}, rv: null };   // rv: rating form (reviewCard)
 
 function cleanCode(v) { const c = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); return c.length === 4 ? c : null; }
 // Rooms where this phone is the Mastermind: [{ code, key, t }], newest first.
@@ -77,7 +77,7 @@ function morph(a, b) {
     if (x.nodeType !== 1) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; return; }
     for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
     for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
-    if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') { if (x !== document.activeElement && x.type !== 'checkbox') x.value = y.getAttribute('value') ?? ''; if (x.type === 'checkbox') x.checked = y.hasAttribute('checked'); return; }
+    if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') { if (x !== document.activeElement && x.type !== 'checkbox') x.value = x.tagName === 'TEXTAREA' ? y.value : y.getAttribute('value') ?? ''; if (x.type === 'checkbox') x.checked = y.hasAttribute('checked'); return; }
     if ('disabled' in x) x.disabled = y.hasAttribute('disabled');
     morph(x, y);
   });
@@ -326,7 +326,8 @@ function overView(sc) {
     <footer>惨剧轮回剧作家助手 · 房间 ${code}</footer></div>
     <div class="btns" data-html2canvas-ignore><button class="btn navy" data-act="save" ${ui.saving ? 'disabled' : ''}>${ui.saving ? '正在生成…' : '保存结算长图'}</button></div>
     <p class="note" data-html2canvas-ignore>这局已存档，可以在首页「往期对局」查看。结算长图有剧本真相，发给还没玩过这个剧本的人前请注意剧透。</p>
-    <div class="btns" data-html2canvas-ignore><button class="btn ghost" data-act="undo" ${S.canUndo ? '' : 'disabled'}>撤销结算</button><button class="btn ghost" data-act="reset">在这个房间再开一局</button></div>`;
+    <div class="btns" data-html2canvas-ignore><button class="btn ghost" data-act="undo" ${S.canUndo ? '' : 'disabled'}>撤销结算</button><button class="btn ghost" data-act="reset">在这个房间再开一局</button></div>
+    ${reviewCard()}`;
 }
 
 function scriptTab(sc) {
@@ -366,6 +367,7 @@ function publicPage() {
     <h2 class="h"><span>公开信息</span></h2>${publicSheet(st.sheet, st.happened)}
     ${revItems.length ? `<h2 class="h"><span>已公开</span></h2><div class="card route"><ul class="dots">${revItems.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
     ${st.loops.length ? `<h2 class="h"><span>轮回记录</span></h2><div class="card route"><ul class="dots">${st.loops.map(l => `<li>第 ${l.n} 轮回：${l.lost ? `第 ${l.day} 天主人公失败` : '主人公获胜'}</li>`).join('')}</ul></div>` : ''}
+    ${st.stage === 'over' ? reviewCard() : ''}
     <footer>公开视图只显示桌上公开的信息</footer>`;
 }
 
@@ -440,6 +442,43 @@ function incSheet(i) {
     ${meet ? `<button class="btn" data-act="incok" data-i="${i}" data-r="yes">记录：发生</button>` : `<button class="btn navy" data-act="incok" data-i="${i}" data-r="no">记录：未发生</button>`}</div>`;
 }
 
+/* ---------- rating this game (stars + comment), shown on the hub boardgame.leisurecat.cloud ---------- */
+// Nothing about the script goes into the card or the request: only who rates, the stars, the comment and the room code.
+const REVIEW_API = 'https://boardgame.leisurecat.cloud/api/reviews';
+const STAR_TXT = ['点星星打分', '不推荐', '一般', '还行', '好玩', '超好玩'];
+// Who can rate from this phone: the Mastermind's private view rates as 剧作家; a public view as one of the Protagonists.
+const rvWhos = () => role === 'mm' ? ['剧作家'] : ['主人公 1', '主人公 2', '主人公 3'];
+const rvKey = () => `tl-rv-${code}-${role}`;
+const savedReview = () => { try { return JSON.parse(store.get(rvKey())) || {}; } catch { return {}; } };
+const rvName = rv => (role === 'mm' ? '剧作家' : (rv.name || '').trim() || rv.who || '').slice(0, 20);
+function reviewCard() {
+  if (ui.rv?.key !== rvKey()) ui.rv = { who: role === 'mm' ? '剧作家' : null, name: '', stars: 0, text: '', state: '', err: '', ...savedReview(), key: rvKey() };
+  const rv = ui.rv;
+  if (rv.state === 'sent') return `<h2 class="h" data-html2canvas-ignore><span>给这款游戏打个分</span></h2><div class="card rv" data-k="rv" data-html2canvas-ignore><div class="rv-done">${'★'.repeat(rv.stars)}${'☆'.repeat(5 - rv.stars)}</div>
+    <p>谢谢 ${esc(rvName(rv))} 的评价！</p><div class="btns"><button class="btn ghost" data-act="rv-edit">修改评价</button><a class="btn navy" href="https://boardgame.leisurecat.cloud">看大家的评价</a></div></div>`;
+  return `<h2 class="h" data-html2canvas-ignore><span>给这款游戏打个分</span><small>满分 5 星</small></h2><div class="card rv" data-k="rv" data-html2canvas-ignore>
+    <div class="rv-l">我是</div><div class="rv-who">${rvWhos().map(w => `<button class="${rv.who === w ? 'on' : ''}" data-act="rv-who" data-who="${w}">${w}</button>`).join('')}</div>
+    ${role === 'mm' ? '' : `<input class="pn rv-name" data-rv="name" maxlength="20" placeholder="你的名字（可不填，默认显示上面选的）" value="${esc(rv.name)}">`}
+    <div class="rv-st">${[1, 2, 3, 4, 5].map(n => `<button class="${n <= rv.stars ? 'on' : ''}" data-act="rv-star" data-n="${n}" aria-label="${n} 星">★</button>`).join('')}<span>${STAR_TXT[rv.stars]}</span></div>
+    <textarea data-rv="text" placeholder="说说这款游戏怎么样（可不填）" maxlength="300">${esc(rv.text)}</textarea>
+    <button class="btn" data-act="rv-send" ${!rv.who || !rv.stars || rv.state === 'sending' ? 'disabled' : ''}>${rv.state === 'sending' ? '提交中…' : '提交评价'}</button>
+    ${rv.err ? `<p class="err">${esc(rv.err)}</p>` : ''}
+    <p class="note">评价和名字会显示在「桌游小助手」首页，并计入这款游戏的整体评分。请不要在评论里写剧本内容，以免剧透。同一局再次提交会覆盖之前的评价。</p></div>`;
+}
+async function sendReview() {
+  const rv = ui.rv;
+  rv.state = 'sending'; rv.err = ''; render();
+  try {
+    const r = await fetch(REVIEW_API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ game: 'tl', stars: rv.stars, name: rvName(rv), text: rv.text, room: code }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `提交失败（${r.status}）`);
+    rv.state = 'sent';
+    store.set(rvKey(), JSON.stringify({ who: rv.who, name: rv.name, stars: rv.stars, text: rv.text, state: 'sent' }));
+  } catch (e) {
+    rv.state = ''; rv.err = ['Failed to fetch', 'Load failed', 'network error'].includes(e.message) ? '网络连接失败，请稍后再试' : e.message;
+  }
+  render();
+}
+
 /* ---------- long image ---------- */
 function loadScript(src) { return new Promise((ok, no) => { if (window.html2canvas) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
 async function saveImage() {
@@ -487,6 +526,10 @@ document.addEventListener('click', async e => {
     case 'close': ui.sheet = null; ui.fx = {}; return render();
     case 'tab': ui.tab = d.tab; return render();
     case 'publicview': window.open(`/?r=${code}&v=1`, '_blank'); return;
+    case 'rv-who': ui.rv.who = d.who; return render();
+    case 'rv-star': ui.rv.stars = +d.n; return render();
+    case 'rv-send': return sendReview();
+    case 'rv-edit': ui.rv.state = ''; return render();
   }
   if (role !== 'mm') return;
   switch (a) {
@@ -529,6 +572,11 @@ document.addEventListener('click', async e => {
     case 'reset': ui.sheet = { k: 'reset' }; return render();
     case 'resetok': send({ t: 'reset' }); ui.sheet = null; ui.tab = 'game'; return;
   }
+});
+document.addEventListener('input', e => {
+  const d = e.target.dataset;
+  if (d.rv === 'text') ui.rv.text = e.target.value;
+  if (d.rv === 'name') ui.rv.name = e.target.value;
 });
 document.addEventListener('change', e => {
   const b = e.target.closest('[data-act]');
