@@ -408,3 +408,53 @@ body.has-chat{padding-bottom:72px}
 .rv p{text-align:center;margin:6px 0 10px;font:700 16px var(--serif)}
 .rv .note{text-align:left;margin:10px 0 0;font:500 13px/1.6 var(--sans)}
 .rv .btns .btn{height:44px;margin-top:0;line-height:42px;font-size:14.5px;letter-spacing:1px}
+
+/* script chooser and the chosen script */
+.sc-item.big{padding:13px 12px;border-width:1px}
+.sc-item.big .nm b{font-size:17px}
+.sc-item.big .nm span{font-size:13px}
+.sc-item.big .nm span i{font-style:normal;color:var(--red2);font-weight:700}
+.sc-item .go{flex:none;margin-left:2px;font:400 24px/1 var(--sans);color:var(--ink3)}
+.sc-item.cur{border-color:var(--red2);box-shadow:0 0 0 1px var(--red2) inset,0 0 18px rgba(196,42,67,.25)}
+.sc-item:active{transform:translateY(1px)}
+.pick-hero{margin-top:12px;padding:14px 14px 12px;background:radial-gradient(ellipse at 100% 0%,rgba(196,42,67,.3),transparent 60%),var(--panel);border-color:rgba(230,80,105,.55)}
+.ph-top{display:flex;align-items:center;gap:8px}
+.ph-no{padding:2px 8px;border-radius:6px;background:var(--red);color:#fff;font:600 13px var(--num);letter-spacing:1px}
+.ph-set{font:600 13px var(--sans);color:var(--ink2)}
+.ph-chg{margin-left:auto;height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--line2);background:rgba(255,255,255,.06);font:700 13.5px var(--sans)}
+.pick-hero > b{display:block;margin-top:10px;font:900 24px/1.3 var(--serif);letter-spacing:2px}
+.ph-sub{display:block;margin-top:3px;font:500 13px var(--sans);color:var(--ink2)}
+.ph-stats{display:flex;gap:8px;margin-top:12px}
+.ph-stats span{flex:1;padding:7px 0;border-radius:8px;background:rgba(0,0,0,.25);text-align:center;font:500 12.5px var(--sans);color:var(--ink2)}
+.ph-stats i{display:block;font:600 20px/1.2 var(--num);font-style:normal;color:var(--gold2)}
+
+/* reference: character cards, roles, rules */
+.fx{display:block;margin-top:2px;font:500 12.5px/1.5 var(--sans);color:var(--ink2)}
+.ref summary{list-style:none;position:relative;padding:13px 36px 13px 12px;font:700 15px/1.5 var(--sans);cursor:pointer}
+.ref summary::-webkit-details-marker{display:none}
+.ref summary:after{content:"+";position:absolute;right:13px;top:10px;font:500 22px var(--num);color:var(--red2)}
+.ref[open] summary:after{content:"−"}
+.ref[open] summary{border-bottom:1px solid var(--line)}
+.ref-sec{padding:4px 12px 10px}
+.ref > .ref-sec,.ref > .src{padding-left:12px;padding-right:12px}
+.ref-sec h4{display:flex;align-items:baseline;gap:8px;margin:14px 0 4px;font:900 16px var(--serif);letter-spacing:1px;color:var(--c-p)}
+.ref-sec h4 small{font:500 12px var(--sans);letter-spacing:0;color:var(--ink3)}
+.pref,.rref,.cref{padding:10px 0;border-bottom:1px solid var(--line)}
+.ref-sec > :last-child{border-bottom:none}
+.pref b,.rref-h b,.cref-h b{font:700 15.5px var(--sans);color:#fff}
+.pref > span{display:block;margin-top:2px;font:500 13px var(--sans);color:var(--gold2)}
+.pref p,.rref p{margin-top:4px;font:500 14.5px/1.65 var(--sans);color:#d6cde0}
+.none{color:var(--ink3)!important}
+.rref-h,.cref-h{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.rref-h em,.cref-h em{padding:1px 8px;border-radius:9px;background:rgba(205,176,122,.18);color:var(--gold2);font:600 12px var(--sans);font-style:normal}
+.rref-h span{margin-left:auto;font:500 13px var(--sans);color:var(--ink2)}
+.cref-h span{margin-left:auto;font:500 13px var(--sans);color:var(--ink2)}
+.cref-h span i{font:600 18px var(--num);font-style:normal;color:var(--c-p);margin-left:2px}
+.cref .kv{margin-top:6px;font-size:14px}
+.gwl{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.gwl > div{padding:8px 10px;border-radius:8px;background:rgba(238,143,176,.08);border:1px solid rgba(238,143,176,.22);font:500 14.5px/1.6 var(--sans)}
+.gwn{display:inline-block;margin-right:7px;padding:0 7px;border-radius:9px;background:var(--c-g);color:#2a0f19;font:700 12px/20px var(--sans)}
+.gwl small{display:inline-block;margin-left:6px;padding:0 6px;border-radius:8px;background:rgba(255,255,255,.08);font:600 11.5px/18px var(--sans);color:var(--ink2)}
+.sheet .cref{border-bottom:none;padding-top:2px}
+.sheet .cref-h b{font:900 19px var(--serif);letter-spacing:1px}
+.cc{cursor:pointer}

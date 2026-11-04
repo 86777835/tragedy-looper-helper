@@ -1,7 +1,7 @@
 import { PHASES, TOKENS, ONCE, FLAGS, reminders, loopEndChecks, roleOf, scriptOf, maxLoops, incPara, extraOf, forbidden,
   LOCS, LOC_ZH, CHARS, ROLES, PLOTS, INCIDENTS, SETS, SCRIPT } from './logic.js';
 import { SCRIPTS } from './data.js';
-import { publicSheet, pubSheetOf, privateSheet, notesBlock } from './views.js';
+import { publicSheet, pubSheetOf, privateSheet, notesBlock, charCard, roleCard, setRef } from './views.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -33,7 +33,7 @@ const viewOnly = qs.get('v') === '1';   // the Mastermind's own phone showing th
 { const k = new URLSearchParams(location.hash.slice(1)).get('k'); if (code && /^[0-9a-f]{32}$/.test(k || '')) { remember(code, k); history.replaceState(null, '', location.pathname + location.search); } }
 
 let S = null, role = null, noRoom = false, online = false, ws = null, queue = [], retry = 0;
-const ui = { tab: 'game', sheet: null, err: '', busy: false, all: false, place: {}, saving: false, fx: {}, rv: null };   // rv: rating form (reviewCard)
+const ui = { tab: 'game', sheet: null, err: '', busy: false, all: false, place: {}, saving: false, fx: {}, rv: null, choose: false, toTop: false };   // choose: script list shown again; toTop: scroll up after picking   // rv: rating form (reviewCard)
 
 function cleanCode(v) { const c = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); return c.length === 4 ? c : null; }
 // Rooms where this phone is the Mastermind: [{ code, key, t }], newest first.
@@ -89,6 +89,7 @@ function render() {
   morph($('#app'), t);
   $('#sheet').innerHTML = ui.sheet && S ? sheetView() : '';
   document.body.classList.toggle('has-dock', !!$('.dock'));
+  if (ui.toTop && (ui.choose || S?.sid)) { ui.toTop = false; window.scrollTo(0, 0); }
   // keep the current phase in view on the phase strip
   const strip = $('.phases'), on = strip?.querySelector('.on');
   if (on && render.ph !== `${S.loop}-${S.day}-${S.ph}`) { render.ph = `${S.loop}-${S.day}-${S.ph}`; strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + on.offsetWidth / 2; }
@@ -144,8 +145,8 @@ function board(st, priv) {
       <div class="lh"><b>${LOC_ZH[l]}</b>${priv ? `<button data-act="bd" data-loc="${l}" aria-label="${LOC_ZH[l]}的密谋">` : ''}<span class="bdI">密谋 ${tk('i', st.bd[l])}</span>${priv ? '</button>' : ''}</div>
       <div class="cs">${here.map(id => {
         const c = st.ch[id], r = priv ? ROLES[roleOf(S, id)]?.name : st.rev?.role?.[id];
-        return `<${priv ? 'button' : 'div'} class="cc${c.dead ? ' dead' : ''}" ${priv ? `data-act="char" data-id="${id}"` : ''} data-k="cc-${id}">
-          <span class="cn">${CHARS[id].name}${r ? `<em>${esc(r)}${priv && st.rev?.role?.[id] ? ' · 已公开' : ''}</em>` : ''}</span>${tokRow(c, id)}</${priv ? 'button' : 'div'}>`;
+        return `<button class="cc${c.dead ? ' dead' : ''}" data-act="${priv ? 'char' : 'cinfo'}" data-id="${id}" data-k="cc-${id}">
+          <span class="cn">${CHARS[id].name}${r ? `<em>${esc(r)}${priv && st.rev?.role?.[id] ? ' · 已公开' : ''}</em>` : ''}</span>${tokRow(c, id)}</button>`;
       }).join('')}</div></div>`;
   }).join('')}</div>`;
 }
@@ -161,11 +162,12 @@ function phaseStrip(ph, tappable) {
 function mmView() {
   if (S.stage === 'setup') return setupView();
   const sc = scriptOf(S);
-  const tabs = [['game', S.stage === 'over' ? '结算' : '对局'], ['script', '剧本'], ['log', '记录']];
+  const tabs = [['game', S.stage === 'over' ? '结算' : '对局'], ['script', '剧本'], ['ref', '速查'], ['log', '记录']];
   const tab = tabs.some(t => t[0] === ui.tab) ? ui.tab : 'game';
   const head = `<div class="tabs">${tabs.map(([k, n]) => `<button class="tab${tab === k ? ' on' : ''}" data-act="tab" data-tab="${k}">${n}</button>`).join('')}</div>`;
   let body;
   if (tab === 'script') body = scriptTab(sc);
+  else if (tab === 'ref') body = refTab(sc);
   else if (tab === 'log') body = logTab(sc);
   else body = S.stage === 'play' ? playView(sc) : S.stage === 'loopEnd' ? loopEndView(sc) : S.stage === 'final' ? finalView(sc) : overView(sc);
   return head + body;
@@ -173,20 +175,25 @@ function mmView() {
 
 function setupView() {
   const sc = S.sid ? SCRIPT[S.sid] : null;
-  const chooser = `<h2 class="h"><span>1 选剧本</span><small>基础版 10 个官方剧本</small></h2>
-    <div class="list">${SCRIPTS.map(s => `<button class="card sc-item" data-act="pick" data-sid="${s.id}" data-k="pk-${s.id}" style="${S.sid === s.id ? 'border-color:var(--red2);box-shadow:0 0 0 1px var(--red2) inset' : ''}">
-      <span class="no">${s.no}</span><span class="nm"><b>${esc(s.zh)}</b><span>${SETS[s.set].name} · ${s.days} 天 · ${s.opts.map(o => `${o[0]} 轮回`).join(' / ')}</span></span>
-      <span class="df"><b>${s.opts.map(o => o[1]).join('/')}</b>难度</span></button>`).join('')}</div>`;
-  if (!sc) return `<p class="note secret">这是<b>剧作家私密视图</b>，剧本内容不要让主人公看到。主人公用房间码或二维码进入的是公开视图。</p>${chooser}${inviteCard()}`;
+  if (!sc || ui.choose) return `<p class="note secret">这是<b>剧作家私密视图</b>，剧本内容不要让主人公看到。主人公用房间码或二维码进入的是公开视图。</p>
+    <h2 class="h"><span>选剧本</span><small>基础版 10 个官方剧本</small></h2>
+    ${['fs', 'btx'].map(set => `<div class="fq-cat" style="margin-top:12px">${SETS[set].name} · ${SETS[set].zh}</div>
+      <div class="list">${SCRIPTS.filter(s => s.set === set).map(s => `<button class="card sc-item big${S.sid === s.id ? ' cur' : ''}" data-act="pick" data-sid="${s.id}" data-k="pk-${s.id}">
+        <span class="no">${s.no}</span><span class="nm"><b>${esc(s.zh)}</b><span>${s.days} 天 · ${s.opts.map(o => `${o[0]} 轮回`).join(' / ')}${S.sid === s.id ? ' · <i>当前选择</i>' : ''}</span></span>
+        <span class="df"><b>${s.opts.map(o => o[1]).join('/')}</b>难度</span><span class="go">›</span></button>`).join('')}</div>`).join('')}
+    ${sc ? '<button class="btn ghost" data-act="pick" data-sid="' + sc.id + '">不换了，回到设置</button>' : ''}
+    ${inviteCard()}`;
   const hench = Object.keys(sc.cast).filter(id => CHARS[id].start === null);
   const ready = hench.every(id => ui.place[id]);
-  return `<p class="note secret">这是<b>剧作家私密视图</b>，剧本内容不要让主人公看到。</p>
-    ${chooser}
-    <h2 class="h"><span>2 轮回数</span></h2>
+  return `<div class="card pick-hero" data-k="hero-${sc.id}"><div class="ph-top"><span class="ph-no">${sc.no}</span><span class="ph-set">${SETS[sc.set].name}</span><button class="ph-chg" data-act="choose">换剧本</button></div>
+      <b>${esc(sc.zh)}</b><span class="ph-sub">${esc(sc.jp)} · ${esc(sc.en)}</span>
+      <div class="ph-stats"><span><i>${sc.days}</i>天</span><span><i>${sc.opts.map(o => o[0]).join('/')}</i>轮回</span><span><i>${sc.opts.map(o => o[1]).join('/')}</i>难度</span></div></div>
+    <p class="note secret">这是<b>剧作家私密视图</b>，剧本内容不要让主人公看到。</p>
+    <h2 class="h"><span>1 轮回数</span></h2>
     <div class="chips">${sc.opts.map(([l, d], i) => `<button class="chip${S.opt === i ? ' on' : ''}" data-act="opt" data-i="${i}">${l} 轮回 · 难度 ${d}</button>`).join('')}</div>
-    <h2 class="h"><span>3 摆放清单</span><small>照着摆，勾掉做完的</small></h2>
+    <h2 class="h"><span>2 摆放清单</span><small>照着摆，勾掉做完的</small></h2>
     ${checklist(sc)}
-    <h2 class="h"><span>两张信息卡</span></h2>
+    <h2 class="h"><span>3 两张信息卡</span></h2>
     ${publicSheet(pubSheetOf(sc, S.opt))}
     <div style="height:8px"></div>${privateSheet(sc)}
     <details class="card" style="margin-top:10px"><summary class="route" style="cursor:pointer"><b>核心机制与路线建议（点开）</b></summary><div style="padding:0 0 10px">${notesBlock(sc.id)}</div></details>
@@ -341,6 +348,19 @@ function scriptTab(sc) {
     <h2 class="h"><span>剧本笔记</span></h2>${notesBlock(sc.id)}`;
 }
 
+// 速查: this script's roles and rules, the characters' cards, and the whole tragedy set.
+function refTab(sc) {
+  const byRole = {};
+  for (const [id, r] of Object.entries(sc.cast)) (byRole[r] ||= []).push(CHARS[id].name);
+  const roles = Object.keys(byRole).sort((a, b) => (a === 'person') - (b === 'person'));
+  const plot = k => { const p = PLOTS[k]; return `<div class="pref"><b>${p.name}</b>${[p.setup, p.loss, p.ab].filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('') || '<p class="none">没有追加规则</p>'}</div>`; };
+  return `<p class="note">点版图上的角色也能看他的身份和能力。</p>
+    <h2 class="h"><span>本剧本的规则</span></h2><div class="card ref-sec">${plot(sc.y)}${sc.x.map(plot).join('')}${sc.special.length ? `<div class="pref"><b>特殊规则</b>${sc.special.map(x => `<p>${esc(x)}</p>`).join('')}</div>` : ''}</div>
+    <h2 class="h"><span>本剧本的身份</span></h2><div class="card ref-sec">${roles.map(r => roleCard(r, byRole[r].join('、'))).join('')}</div>
+    <h2 class="h"><span>登场角色</span><small>卡面信息</small></h2><div class="card ref-sec">${Object.keys(sc.cast).map(id => charCard(id, ROLES[sc.cast[id]].name)).join('')}</div>
+    <details class="card ref" style="margin-top:14px"><summary>「${SETS[sc.set].name}」模组速查：全部规则、身份、事件</summary>${setRef(sc.set)}</details>`;
+}
+
 function logTab(sc) {
   const cur = S.stage === 'play' ? `<h2 class="h"><span>第 ${S.loop} 轮回</span><small>${S.log.length} 条</small></h2>
     <div class="card log">${S.log.slice().reverse().map(e => `<div class="${e.k === 'note' ? 'note' : ''}"><b>第${e.d}天</b>${esc(e.x)}</div>`).join('') || '<div>还没有记录</div>'}</div>
@@ -365,6 +385,10 @@ function publicPage() {
     ${board(st, false)}
     <p class="legend" style="font-size:11.5px;color:var(--ink2);margin-top:6px">${tk('g', '友')} 友好 ${tk('p', '不')} 不安（白圈：达到不安限度） ${tk('i', '谋')} 密谋</p>
     <h2 class="h"><span>公开信息</span></h2>${publicSheet(st.sheet, st.happened)}
+    <h2 class="h"><span>速查</span><small>点版图上的角色看角色卡</small></h2>
+    <details class="card ref"><summary>登场角色：不安限度、属性、友好能力</summary><div class="ref-sec">${Object.keys(st.ch).map(id => charCard(id, st.rev?.role?.[id])).join('')}</div></details>
+    <details class="card ref" style="margin-top:8px"><summary>「${esc(st.sheet.set)}」模组速查：全部规则、身份、事件</summary>${setRef(Object.keys(SETS).find(k => SETS[k].name === st.sheet.set))}</details>
+    <a class="btn ghost" href="guide">规则介绍与常见问题</a>
     ${revItems.length ? `<h2 class="h"><span>已公开</span></h2><div class="card route"><ul class="dots">${revItems.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
     ${st.loops.length ? `<h2 class="h"><span>轮回记录</span></h2><div class="card route"><ul class="dots">${st.loops.map(l => `<li>第 ${l.n} 轮回：${l.lost ? `第 ${l.day} 天主人公失败` : '主人公获胜'}</li>`).join('')}</ul></div>` : ''}
     ${st.stage === 'over' ? reviewCard() : ''}
@@ -376,6 +400,7 @@ function sheetView() {
   const s = ui.sheet;
   let body = '';
   if (s.k === 'share') body = shareSheet();
+  else if (s.k === 'cinfo') body = `${charCard(s.id, S.rev?.role?.[s.id])}<button class="btn ghost" data-act="close">关闭</button>`;
   else if (role !== 'mm') { ui.sheet = null; return ''; }
   else if (s.k === 'char') body = charSheet(s.id);
   else if (s.k === 'bd') body = `<h3>${LOC_ZH[s.loc]}的密谋</h3><div class="stp" style="margin-top:12px">${tk('i', S.bd[s.loc])}<b>版图上的密谋</b>
@@ -526,6 +551,7 @@ document.addEventListener('click', async e => {
     case 'close': ui.sheet = null; ui.fx = {}; return render();
     case 'tab': ui.tab = d.tab; return render();
     case 'publicview': window.open(`/?r=${code}&v=1`, '_blank'); return;
+    case 'cinfo': ui.sheet = { k: 'cinfo', id: d.id }; return render();
     case 'rv-who': ui.rv.who = d.who; return render();
     case 'rv-star': ui.rv.stars = +d.n; return render();
     case 'rv-send': return sendReview();
@@ -533,7 +559,8 @@ document.addEventListener('click', async e => {
   }
   if (role !== 'mm') return;
   switch (a) {
-    case 'pick': send({ t: 'pick', sid: d.sid, opt: 0 }); ui.place = {}; return;
+    case 'pick': if (d.sid !== S.sid) send({ t: 'pick', sid: d.sid, opt: 0 }); ui.place = {}; ui.choose = false; ui.toTop = true; return render();
+    case 'choose': ui.choose = true; ui.toTop = true; return render();
     case 'opt': send({ t: 'pick', sid: S.sid, opt: +d.i }); return;
     case 'place': ui.place[d.id] = d.loc; return render();
     case 'start': send({ t: 'start', place: ui.place }); ui.place = {}; ui.tab = 'game'; return;

@@ -4,6 +4,8 @@ import { NOTES } from './notes.js';
 const extraOf = (sc, id) => (sc.extra || {})[id] || {};
 export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+const fxOf = name => Object.values(INCIDENTS).find(i => i.name === name)?.fx || '';
+
 // The public script sheet (公开信息表): what goes on the table for everyone.
 export function publicSheet(sh, happened) {
   return `<div class="card sheetc"><h3>公开信息卡 <em>公开</em></h3>
@@ -11,7 +13,7 @@ export function publicSheet(sh, happened) {
     <dt>轮回数</dt><dd><b>${sh.loops}</b> 轮回</dd><dt>天数</dt><dd>每轮回 <b>${sh.days}</b> 天</dd>
     <dt>特殊规则</dt><dd>${sh.special.length ? sh.special.map(esc).join('；') : '无'}</dd></dl>
     <table class="tb"><tr><th>日期</th><th>事件</th>${happened ? '<th>本轮回</th>' : ''}</tr>
-    ${sh.incidents.map((it, k) => `<tr><td>第 ${it.day} 天</td><td>${esc(it.name)}</td>${happened ? `<td>${happened[k] === 'yes' ? '<b style="color:var(--red2)">已发生</b>' : happened[k] === 'no' ? '未发生' : '—'}</td>` : ''}</tr>`).join('')}</table></div>`;
+    ${sh.incidents.map((it, k) => `<tr><td>第 ${it.day} 天</td><td>${esc(it.name)}${fxOf(it.name) ? `<small class="fx">${esc(fxOf(it.name))}</small>` : ''}</td>${happened ? `<td>${happened[k] === 'yes' ? '<b style="color:var(--red2)">已发生</b>' : happened[k] === 'no' ? '未发生' : '—'}</td>` : ''}</tr>`).join('')}</table></div>`;
 }
 export const pubSheetOf = (sc, opt) => ({ set: SETS[sc.set].name, setRules: SETS[sc.set].rules, loops: sc.opts[opt][0], days: sc.days, special: sc.special, incidents: sc.incidents.map(([day, k]) => ({ day, name: INCIDENTS[k].name })) });
 
@@ -39,3 +41,35 @@ export function notesBlock(sid) {
     <h2 class="h"><span>本剧本易错点</span></h2><div class="card route"><ul class="dots">${n.watch.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
 }
 
+
+/* ---------- reference: character cards, roles, the tragedy set ---------- */
+// A character card (public: printed on the card). role: a role name to show (only for the Mastermind, or when revealed).
+export function charCard(id, role) {
+  const c = CHARS[id];
+  return `<div class="cref"><div class="cref-h"><b>${c.name}</b>${role ? `<em>${esc(role)}</em>` : ''}<span>不安限度 <i>${c.limit}</i></span></div>
+    <dl class="kv"><dt>属性</dt><dd>${c.tags.length ? c.tags.join('、') : '无'}</dd>
+    <dt>初始区域</dt><dd>${c.start ? LOC_ZH[c.start] : '每轮回由剧作家决定'}</dd>
+    ${c.forbid ? `<dt>禁止区域</dt><dd>${c.forbid.map(l => LOC_ZH[l]).join('、')}</dd>` : ''}
+    ${c.trait ? `<dt>特性</dt><dd>${esc(c.trait)}</dd>` : ''}</dl>
+    ${c.gw.length ? `<div class="gwl">${c.gw.map(([n, x, fl]) => `<div><span class="gwn">友好 ${n}</span>${esc(x)}${fl?.once ? '<small>每轮回 1 次</small>' : ''}${fl?.noRefuse ? '<small>不可拒绝</small>' : ''}${fl?.from ? `<small>第 ${fl.from} 轮回起</small>` : ''}</div>`).join('')}</div>` : '<div class="gwl"><div class="none">没有友好能力</div></div>'}
+    ${c.src ? `<p class="src">${c.src === '第三方' ? '数值来自社区整理的 5th 卡面，请以实体卡为准' : '数值来自官方旧版速查表'}</p>` : ''}</div>`;
+}
+const refuseTxt = r => r.refuse === 'must' ? '必定无视友好' : r.refuse === 'may' ? '无视友好' : '';
+// One role with its abilities.
+export function roleCard(key, who) {
+  const r = ROLES[key];
+  return `<div class="rref"><div class="rref-h"><b>${r.name}</b>${refuseTxt(r) ? `<em>${refuseTxt(r)}</em>` : ''}${r.cap ? `<em>上限 ${r.cap}</em>` : ''}${who ? `<span>${esc(who)}</span>` : ''}</div>
+    ${(r.ab || []).length ? r.ab.map(x => `<p>${esc(x)}</p>`).join('') : `<p class="none">${key === 'person' ? '没有能力' : '没有能力（只有上面的特性）'}</p>`}</div>`;
+}
+// The whole tragedy set, as on its official summary sheet: public, the same for every script of the set.
+export function setRef(setKey) {
+  const s = SETS[setKey];
+  const plot = k => { const p = PLOTS[k], roles = Object.entries(p.roles).map(([r, n]) => `${ROLES[r].name}${n > 1 ? ` ×${n}` : ''}`).join('、');
+    return `<div class="pref"><b>${p.name}</b><span>${roles || '不追加身份'}</span>${[p.setup, p.loss, p.ab].filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('')}</div>`; };
+  return `<div class="ref-sec"><h4>规则Y<small>剧本选 1 条</small></h4>${s.y.map(plot).join('')}</div>
+    <div class="ref-sec"><h4>规则X<small>剧本选 ${s.xCount} 条</small></h4>${s.x.map(plot).join('')}</div>
+    <div class="ref-sec"><h4>身份</h4>${s.roles.map(r => roleCard(r)).join('')}</div>
+    <div class="ref-sec"><h4>事件<small>当事人存活且不安达到不安限度时必定发生</small></h4>${s.incidents.map(k => `<div class="pref"><b>${INCIDENTS[k].name}</b><p>${esc(INCIDENTS[k].fx)}</p></div>`).join('')}</div>
+    ${s.rules.length ? `<div class="ref-sec"><h4>模组规则</h4><div class="pref">${s.rules.map(x => `<p>${esc(x)}</p>`).join('')}</div></div>` : ''}
+    <p class="src">依据 BakaFire 官方「${s.name}」速查表整理</p>`;
+}
