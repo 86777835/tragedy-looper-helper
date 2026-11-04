@@ -186,6 +186,8 @@ node tests/test_chat.mjs https://你的域名/ ./shots --live                   
 
 ## 部署
 
+图片缓存 7 天，部署时若替换同名图片，用户最多需要等待 7 天才能看到新图。
+
 线上地址：[tl.leisurecat.cloud](https://tl.leisurecat.cloud)（Worker `tragedy-looper-helper`）。
 
 ```bash
