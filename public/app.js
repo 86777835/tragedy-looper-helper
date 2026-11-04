@@ -11,6 +11,20 @@ const store = {
 };
 const ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 const LV = { must: '强制', loss: '可判负', may: '任意', info: '提示' };
+// Groups of the reminder list, in the order the rules resolve them.
+const GROUPS = [['must', '必须结算', '条件满足，规则不让你选'], ['loss', '可以让主人公失败', '任意能力，用不用由你决定'], ['may', '可以使用', '任意能力和每轮回 1 次的牌'], ['info', '留意', '']];
+// One line on what happens in each phase.
+const PHASE_TIP = {
+  dayStart: '有角色今天登场就放上版图，确认今天是不是最后一天',
+  mmCards: '你从手牌选 3 张，背面朝上放在 3 个不同的角色或版图上',
+  proCards: '队长先出，每名主人公各暗置 1 张',
+  resolve: '翻开 6 张牌，先结算移动，再结算其他牌',
+  mmAbility: '使用身份和规则给你的能力，每个能力各用 1 次',
+  gwAbility: '主人公宣言友好能力，你决定结算还是拒绝',
+  incident: '判定今天的事件是否发生，发生就结算效果',
+  leader: '队长卡交给左手边的主人公',
+  dayEnd: '先结算强制能力，再决定要不要用任意能力'
+};
 
 const qs = new URLSearchParams(location.search);
 let code = cleanCode(qs.get('r'));
@@ -74,6 +88,7 @@ function render() {
   t.innerHTML = view();
   morph($('#app'), t);
   $('#sheet').innerHTML = ui.sheet && S ? sheetView() : '';
+  document.body.classList.toggle('has-dock', !!$('.dock'));
   // keep the current phase in view on the phase strip
   const strip = $('.phases'), on = strip?.querySelector('.on');
   if (on && render.ph !== `${S.loop}-${S.day}-${S.ph}`) { render.ph = `${S.loop}-${S.day}-${S.ph}`; strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + on.offsetWidth / 2; }
@@ -188,18 +203,20 @@ function checklist(sc) {
   const cast = Object.keys(sc.cast).map(id => { const ex = extraOf(sc, id), st = CHARS[id].start;
     return `${CHARS[id].name}（${ex.enterLoop ? `第 ${ex.enterLoop} 轮回才登场，${LOC_ZH[st]}` : ex.enterDay ? `第 ${ex.enterDay} 天才登场，${LOC_ZH[st]}` : st ? LOC_ZH[st] : '初始区域自选'}）`; }).join('、');
   const items = [
-    `拿出「${set.name}」模组速查表，放在大家都看得到的地方`,
-    `写公开信息卡（交给主人公）：模组 ${set.name}、${opt[0]} 轮回、每轮回 ${sc.days} 天、事件日程 ${sc.incidents.map(([d, k]) => `第${d}天${INCIDENTS[k].name}`).join('、')}${sc.special.length ? `、特殊规则：${sc.special.join('；')}` : ''}`,
-    `写非公开信息卡（自己收好）：规则Y ${PLOTS[sc.y].name}，规则X ${sc.x.map(x => PLOTS[x].name).join('、')}，各角色身份，事件当事人`,
-    `摆 4 块版图：左上医院、右上神社、左下都市、右下学校`,
-    `放角色卡到初始区域：${cast}`,
-    ...Object.entries(sc.extra || {}).filter(([, ex]) => ex.turf).map(([id, ex]) => `${CHARS[id].name}的领地是${LOC_ZH[ex.turf]}：在${LOC_ZH[ex.turf]}放领地标志`),
-    `轮回指示物放在 ${opt[0]}，日数指示物放在第 1 天；事件指示物放到各事件日`,
-    `剧作家手牌 10 张：移动↑↓、移动←→、移动斜向（每轮回1次）、禁止友好、不安+1 ×2、不安−1、禁止不安、密谋+1、密谋+2（每轮回1次）${sc.special.length ? `——特殊规则：${sc.special.join('；')}` : ''}`,
-    '每名主人公 8 张：移动↑↓、移动←→、移动禁止、友好+1、友好+2、不安+1、不安−1、禁止密谋（禁止移动、友好+2、不安−1 每轮回限1次）',
-    '决定首任队长，把队长卡交给他；时之缝隙里主人公可以相谈'
+    ['摆出模组速查表', `「${set.name}」速查表放在大家都看得到的地方`],
+    ['写公开信息卡，交给主人公', `模组 ${set.name}、${opt[0]} 轮回、每轮回 ${sc.days} 天；事件日程：${sc.incidents.map(([d, k]) => `第${d}天${INCIDENTS[k].name}`).join('、')}${sc.special.length ? `；特殊规则：${sc.special.join('；')}` : ''}`],
+    ['写非公开信息卡，自己收好', `规则Y ${PLOTS[sc.y].name}，规则X ${sc.x.map(x => PLOTS[x].name).join('、')}，各角色身份，事件当事人`],
+    ['摆 4 块版图', '左上医院、右上神社、左下都市、右下学校'],
+    ['放角色卡到初始区域', cast],
+    ...Object.entries(sc.extra || {}).filter(([, ex]) => ex.turf).map(([id, ex]) => [`放${CHARS[id].name}的领地标志`, `领地是${LOC_ZH[ex.turf]}`]),
+    ['放指示物', `轮回指示物放在 ${opt[0]}，日数指示物放在第 1 天，事件指示物放到各事件日`],
+    ['剧作家手牌 10 张', `移动↑↓、移动←→、移动斜向（每轮回1次）、禁止友好、不安+1 ×2、不安−1、禁止不安、密谋+1、密谋+2（每轮回1次）${sc.special.length ? `。特殊规则：${sc.special.join('；')}` : ''}`],
+    ['每名主人公 8 张手牌', '移动↑↓、移动←→、移动禁止、友好+1、友好+2、不安+1、不安−1、禁止密谋；移动禁止、友好+2、不安−1 每轮回限 1 次'],
+    ['决定首任队长', '把队长卡交给他；时之缝隙里主人公可以相谈']
   ];
-  return `<div class="card">${items.map((x, i) => `<label class="check${done[i] ? ' done' : ''}" data-k="ck-${sc.id}-${i}"><input type="checkbox" data-act="check" data-i="${i}" ${done[i] ? 'checked' : ''}><span>${esc(x)}</span></label>`).join('')}</div>`;
+  const n = items.filter((x, i) => done[i]).length;
+  return `<div class="card steps"><div class="steps-top"><span>已完成 ${n}/${items.length}</span><div class="steps-bar"><i style="width:${Math.round(n / items.length * 100)}%"></i></div></div>
+    ${items.map(([h, x], i) => `<label class="step${done[i] ? ' done' : ''}" data-k="ck-${sc.id}-${i}"><input type="checkbox" data-act="check" data-i="${i}" ${done[i] ? 'checked' : ''}><span class="sn">${done[i] ? '✓' : i + 1}</span><span class="st"><b>${esc(h)}</b><span>${esc(x)}</span></span></label>`).join('')}</div>`;
 }
 
 function inviteCard() {
@@ -214,27 +231,41 @@ function qrData(text) {
 }
 
 function playView(sc) {
-  const rem = reminders(S), cur = PHASES[S.ph].k, last = S.day === sc.days;
-  const items = ui.all ? PHASES.flatMap(p => (rem[p.k] || []).length ? [`<div class="fq-cat" style="margin:10px 2px 2px">${p.n}</div>`, ...(rem[p.k]).map(remItem)] : []) : (rem[cur] || []).map(remItem);
-  const nextBtn = S.ph < PHASES.length - 1 ? `<button class="btn" data-act="phnext">下一阶段：${PHASES[S.ph + 1].n}</button>`
-    : last ? `<button class="btn" data-act="endloop">结束本轮回（检查失败条件）</button>` : `<button class="btn" data-act="day">进入第 ${S.day + 1} 天</button>`;
+  const rem = reminders(S), cur = PHASES[S.ph], last = S.day === sc.days;
+  const next = S.ph < PHASES.length - 1 ? `<button class="btn" data-act="phnext">下一阶段：${PHASES[S.ph + 1].n}</button>`
+    : last ? `<button class="btn" data-act="endloop">结束本轮回</button>` : `<button class="btn" data-act="day">进入第 ${S.day + 1} 天</button>`;
+  const body = ui.all
+    ? PHASES.map((p, i) => (rem[p.k] || []).length ? `<div class="pc-sub"><span>${i + 1}</span>${p.n}</div>${remList(rem[p.k])}` : '').join('')
+    : remList(rem[cur.k] || []) || '<div class="pc-empty">这一阶段没有要你结算的东西，直接进入下一阶段。</div>';
   return `${statusStrip(S, maxLoops(S), sc.days)}${phaseStrip(S.ph, true)}
+    <div class="card pc" data-k="pc">
+      <div class="pc-head"><span class="pc-no">${S.ph + 1}<small>/9</small></span><div><b>${ui.all ? '今天的全部阶段' : cur.n}</b><em>${ui.all ? '按阶段列出今天要结算的东西' : PHASE_TIP[cur.k]}</em></div>
+        <button class="pc-all" data-act="all">${ui.all ? '只看当前' : '看全天'}</button></div>
+      ${last && !ui.all && cur.k === 'dayEnd' ? '<div class="pc-last">今天是本轮回最后一天：回合结束后结束本轮回，检查失败条件</div>' : ''}
+      <div class="pc-body">${body}</div>
+    </div>
     ${board(S, true)}
-    <h2 class="h"><span>${ui.all ? '今天各阶段' : `${PHASES[S.ph].n}阶段`}要结算</span><small><button class="btn ghost sm" data-act="all" style="width:auto;padding:0 10px;height:28px;margin:0">${ui.all ? '只看当前' : '看全部阶段'}</button></small></h2>
-    <div class="rem">${items.join('') || '<div class="ri info"><i>提示</i><div>这一阶段没有要剧作家结算的东西</div></div>'}</div>
-    ${nextBtn}
-    <div class="btns"><button class="btn ghost" data-act="undo" ${S.canUndo ? '' : 'disabled'}>撤销上一步</button><button class="btn ghost" data-act="lose">记录主人公失败/死亡</button></div>
-    <div class="btns"><button class="btn ghost" data-act="note">记一笔</button><button class="btn ghost" data-act="publicview">看公开视图</button></div>`;
+    <div class="btns more"><button class="btn ghost" data-act="lose">记录失败/死亡</button><button class="btn ghost" data-act="note">记一笔</button><button class="btn ghost" data-act="publicview">公开视图</button></div>
+    <div class="dock" data-k="dock"><div class="dock-in"><button class="btn ghost" data-act="undo" ${S.canUndo ? '' : 'disabled'} aria-label="撤销上一步">撤销</button>${next}</div></div>`;
 }
 function remItem(r) {
   const a = r.act;
   let btn = '';
-  if (a?.t === 'inc') btn = `<button data-act="incsheet" data-k="${a.k}">${a.meet ? '结算事件' : '记录未发生'}</button>`;
-  else if (a?.t === 'ch') btn = `<button data-act="kill" data-id="${a.id}" data-why="${esc(a.why)}">${r.level === 'must' ? '结算死亡' : '使用'}</button>`;
-  else if (a?.t === 'lose') btn = `<button data-act="lose" data-why="${esc(a.why)}" data-death="${a.death ? 1 : ''}">使用</button>`;
-  else if (a?.t === 'once') btn = `<button data-act="once" data-k="${a.k}">${S.once[a.k] ? '改为未用' : '标记已用'}</button>`;
-  else if (a?.t === 'flag') btn = `<button data-act="flag" data-k="${a.k}" data-on="${a.on ? 1 : ''}">${a.on ? '已生效' : '取消'}</button>`;
-  return `<div class="ri ${r.level}"><i>${LV[r.level]}</i><div>${esc(r.text)}</div>${btn}</div>`;
+  if (a?.t === 'inc') btn = `<button data-act="incsheet" data-k="${a.k}">${a.meet ? '结算事件' : '记录：未发生'}</button>`;
+  else if (a?.t === 'ch') btn = `<button data-act="kill" data-id="${a.id}" data-why="${esc(a.why)}">${r.level === 'must' ? '结算死亡' : '使用这个能力'}</button>`;
+  else if (a?.t === 'lose') btn = `<button data-act="lose" data-why="${esc(a.why)}" data-death="${a.death ? 1 : ''}">使用这个能力</button>`;
+  else if (a?.t === 'once') btn = `<button data-act="once" data-k="${a.k}">${S.once[a.k] ? '改回未用' : '标记已用'}</button>`;
+  else if (a?.t === 'flag') btn = `<button data-act="flag" data-k="${a.k}" data-on="${a.on ? 1 : ''}">${a.on ? '标记生效' : '取消'}</button>`;
+  // "主谋（医生，医院）：给同区域…" → the part before the first colon becomes the item's title
+  const m = r.text.match(/^(.{2,26}?)[：:](.+)$/s);
+  const body = m ? `<b>${esc(m[1])}</b><span>${esc(m[2].replace(/^——/, ''))}</span>` : `<span>${esc(r.text)}</span>`;
+  return `<div class="ri ${r.level}"><div class="rt">${body}</div>${btn ? `<div class="ra">${btn}</div>` : ''}</div>`;
+}
+function remList(items) {
+  return GROUPS.map(([lv, name, sub]) => {
+    const g = items.filter(r => r.level === lv);
+    return g.length ? `<div class="rg ${lv}"><div class="rh"><i></i>${name}<small>${sub}</small></div>${g.map(remItem).join('')}</div>` : '';
+  }).join('');
 }
 
 function loopEndView(sc) {
@@ -258,14 +289,14 @@ function loopEndView(sc) {
       <div class="fg">${e.lost ? `第 ${e.day} 天：${e.why.map(esc).join('；')}` : '本轮回没有满足任何失败条件，主人公也没有死亡'}</div></div>
     <p class="note">对主人公只说“你们失败了”，不必说是哪一条。${friendsDead.length ? `<b>亲友死亡必须公开身份：${friendsDead.map(id => CHARS[id].name).join('、')}是亲友。</b>` : ''}</p>
     ${e.lost && !lastLoop ? `<h2 class="h"><span>下一轮回要重置</span></h2>
-    <div class="card route"><ul class="dots">
-      <li>所有角色以存活状态回到初始区域${hench.length ? '（手下的初始区域重新选）' : ''}</li>
-      <li>移除所有角色和版图上的全部指示物（友好、不安、密谋、护卫）</li>
-      <li>日数回到第 1 天，轮回指示物下移一格</li>
-      <li>所有人收回手牌；「每轮回限1次」的牌和能力恢复可用</li>
-      <li>「本轮回中」持续的效果全部结束（军人、医生、手下等）</li>
-      <li>时之缝隙：主人公可以相谈</li></ul></div>
-    ${auto.length ? `<h2 class="h"><span>轮回开始时自动放置</span><small>本站会自动记上</small></h2><div class="card route"><ul class="dots">${auto.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}` : ''}
+    <div class="card resets">
+      ${[['人', '角色', `全部以存活状态回到初始区域${hench.length ? '，手下的初始区域重新选' : ''}`],
+        ['清', '指示物', '移除所有角色和版图上的友好、不安、密谋、护卫'],
+        ['日', '日数', '回到第 1 天，轮回指示物下移一格'],
+        ['牌', '手牌', '所有人收回手牌，「每轮回限1次」的牌和能力恢复可用'],
+        ['效', '持续效果', '「本轮回中」的效果全部结束（军人、医生、手下等）'],
+        ['谈', '时之缝隙', '主人公可以相谈']].map(([ic, h, x]) => `<div class="rs"><span>${ic}</span><div><b>${h}</b>${x}</div></div>`).join('')}</div>
+    ${auto.length ? `<h2 class="h"><span>轮回开始时自动放置</span><small>本站会自动记上</small></h2><div class="card resets">${auto.map(x => `<div class="rs auto"><span>+</span><div>${esc(x)}</div></div>`).join('')}</div>` : ''}` : ''}
     ${action}
     <button class="btn ghost" data-act="undo" ${S.canUndo ? '' : 'disabled'}>撤销（回到轮回结束前）</button>`;
 }

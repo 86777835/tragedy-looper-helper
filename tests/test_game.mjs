@@ -40,8 +40,8 @@ await mm.waitForSelector('text=摆放清单');
 const code = new URL(mm.url()).searchParams.get('r');
 eq('room code in url', /^[A-Z0-9]{4}$/.test(code), true);
 yes('script picked from library', await mm.isVisible('.sc-item[style*="red2"] >> text=初学者剧本'));
-await mm.click('.check >> nth=0'); await settle();
-yes('checklist item ticks', await mm.isChecked('.check input >> nth=0'));
+await mm.click('.step >> nth=0'); await settle();
+yes('checklist item ticks', await mm.isChecked('.step input >> nth=0'));
 yes('invite QR shown', await mm.locator('.qrbox img').first().getAttribute('src').then(s => s?.startsWith('data:image')));
 await shot(mm, '03-setup');
 
