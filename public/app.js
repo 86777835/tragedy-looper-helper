@@ -104,14 +104,14 @@ function view() {
   if (!S) return `${hero()}<div class="wrap"><h2 class="h"><span>正在连接房间 ${code}…</span></h2></div>`;
   return bar() + `<div class="wrap" data-k="${role}-${S.stage}">` + (role === 'mm' ? mmView() : publicPage()) + '</div>';
 }
-const hero = () => `<div class="hero" data-k="hero"><div class="en">TRAGEDY LOOPER</div><h1>惨剧轮回剧作家助手</h1><div class="orn"></div></div><div class="band"></div>`;
-const bar = () => `<div class="bar" data-k="bar"><span class="ttl">惨剧轮回</span>
+const hero = () => `<div class="hero" data-k="hero"><button class="nav-back" data-act="leave" data-html2canvas-ignore>‹ 首页</button><div class="en">TRAGEDY LOOPER</div><h1>惨剧轮回剧作家助手</h1><div class="orn"></div></div><div class="band"></div>`;
+const bar = () => `<div class="bar" data-k="bar"><button class="nav-back" data-act="leave" data-html2canvas-ignore>‹ 首页</button><span class="ttl">惨剧轮回</span>
   <span class="who-tag ${role === 'mm' ? 'mm' : 'view'}">${role === 'mm' ? '剧作家·私密' : '公开视图'}</span>
   <button class="room" data-act="share"><small>房间</small>${code}</button><span class="conn ${online ? 'on' : ''}" title="${online ? '已连接' : '重新连接中'}"></span></div>`;
 
 function landing() {
   const my = mine();
-  return `<div class="hero-art cover" data-k="hero"><img src="img/hero.jpg" alt=""><div class="ht">
+  return `<div class="hero-art cover" data-k="hero"><a class="nav-back" href="https://boardgame.leisurecat.cloud" data-html2canvas-ignore>‹ 全部游戏</a><img src="img/hero.jpg" alt=""><div class="ht">
       <div class="hz">惨剧轮回剧作家助手</div><div class="hs">设好剧本 · 算清惨剧</div></div></div>
     <div class="wrap" data-k="landing">
     <div class="card start">
