@@ -74,9 +74,14 @@ await pro.click('[data-act="rv-star"][data-n="3"]');
 eq('name kept across re-render', await pro.inputValue('[data-rv="name"]'), '小明');
 await pro.click('[data-act="rv-send"]'); await pro.waitForSelector('.rv-done');
 eq('Protagonist posted with the typed name', [posted.at(-1).game, posted.at(-1).stars, posted.at(-1).name, posted.at(-1).room], ['tl', 3, '小明', code]);
-const pubText = await pro.textContent('#app');
+// the set reference (模组速查) lists every rule and role of the tragedy set; it's the same for every script of the set,
+// so it is checked separately below and left out of the word scan
+const pubText = await pro.evaluate(() => { const c = document.querySelector('#app').cloneNode(true); c.querySelectorAll('details.ref').forEach(d => d.remove()); return c.textContent; });
 eq('public page has no script name or roles', hidden.filter(w => pubText.includes(w)), []);
 await pro.screenshot({ path: `${out}/review_public.png`, fullPage: true });
+const { setRef } = await import('../public/views.js');
+eq('set reference on the public view is the set-wide sheet (same for every First Steps script)',
+  await pro.evaluate(() => document.querySelectorAll('details.ref')[1].innerHTML.replace(/^<summary>.*?<\/summary>/, '')), setRef('fs'));
 // a Protagonist who doesn't type a name is posted as the chosen seat
 await pro.click('[data-act="rv-edit"]'); await pro.fill('[data-rv="name"]', ''); await pro.click('[data-act="rv-send"]'); await pro.waitForSelector('.rv-done');
 eq('no name typed → the seat', posted.at(-1).name, '主人公 2');
