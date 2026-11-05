@@ -117,6 +117,7 @@ async function chat(req, env) {
     && msgs.every(m => ['user', 'assistant'].includes(m?.role) && typeof m.content === 'string' && m.content.trim() && m.content.length <= 3000)
     && (sid === undefined || Object.hasOwn(SCRIPT, sid));
   if (!valid) return Response.json({ error: '问题格式不对，请刷新页面再试' }, { status: 400 });
+  console.log('chat question', JSON.stringify(msgs.at(-1).content));   // what players ask, for the usage brief
   const system = sid ? scriptSystem(sid) : RULES_SYSTEM;
   const messages = [{ role: 'system', content: system }, ...msgs.slice(-10).map(m => ({ role: m.role, content: m.content }))];
   const fails = [];   // HTTP status, 0 = unreachable or error, 'queue' = no answer started in time or stalled
