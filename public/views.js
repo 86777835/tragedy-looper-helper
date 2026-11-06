@@ -44,9 +44,10 @@ export function notesBlock(sid) {
 
 /* ---------- reference: character cards, roles, the tragedy set ---------- */
 // A character card (public: printed on the card). role: a role name to show (only for the Mastermind, or when revealed).
-export function charCard(id, role) {
+// img: a small picture of the card (惨劇コモンズ 5th) beside the text.
+export function charCard(id, role, img = true) {
   const c = CHARS[id];
-  return `<div class="cref"><div class="cref-h"><b>${c.name}</b>${role ? `<em>${esc(role)}</em>` : ''}<span>不安限度 <i>${c.limit}</i></span></div>
+  return `<div class="cref">${img ? `<img class="cref-img" loading="lazy" src="img/c/cs-${id}.webp" alt="">` : ''}<div class="cref-h"><b>${c.name}</b>${role ? `<em>${esc(role)}</em>` : ''}<span>不安限度 <i>${c.limit}</i></span></div>
     <dl class="kv"><dt>属性</dt><dd>${c.tags.length ? c.tags.join('、') : '无'}</dd>
     <dt>初始区域</dt><dd>${c.start ? LOC_ZH[c.start] : '每轮回由剧作家决定'}</dd>
     ${c.forbid ? `<dt>禁止区域</dt><dd>${c.forbid.map(l => LOC_ZH[l]).join('、')}</dd>` : ''}

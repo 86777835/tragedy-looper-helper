@@ -40,6 +40,13 @@ await A.click('[data-act="bstart"]'); await A.waitForSelector('.seat');
 await B.goto(base); await B.fill('#joinCode', code); await B.click('[data-act="join"]'); await B.waitForSelector('.seat');
 yes('second phone joins the same game', (await B.textContent('.bot-tag')).includes('人机模式'));
 await A.screenshot({ path: `${out}/bot-2-cards.png` });
+// the visual board: every character as its card, the robot's cards only as backs until the reveal, all images load
+await A.waitForFunction(() => [...document.querySelectorAll('#app img')].every(i => i.complete));
+const imgs0 = await A.$$eval('#app img', l => l.map(i => ({ src: i.getAttribute('src'), ok: i.naturalWidth > 0 })));
+eq('board shows each character as its card', (await A.$$('.vboard .vc')).length, await A.$$eval('.vboard .vc .vimg > img', l => l.filter(i => i.src.includes('/img/c/cs-')).length));
+eq('robot cards face down before the reveal', imgs0.filter(i => /\/mm-(?!back)/.test(i.src)).map(i => i.src), []);
+yes('robot card backs on the board', imgs0.some(i => i.src.endsWith('mm-back.webp')));
+eq('all card images load', imgs0.filter(i => !i.ok).map(i => i.src), []);
 
 let days = 0, gwTried = false;
 for (let guard = 0; guard < 400; guard++) {
@@ -52,7 +59,10 @@ for (let guard = 0; guard < 400; guard++) {
       await A.click('.sheet [data-act="bcok"]'); await settle();
     }
     await A.click('[data-act="breveal"]'); await A.waitForSelector('[data-act="bgwdone"], [data-act="bnext"]'); days++;
-    if (days === 1) await A.screenshot({ path: `${out}/bot-3-revealed.png`, fullPage: true });
+    if (days === 1) {
+      await A.screenshot({ path: `${out}/bot-3-revealed.png`, fullPage: true });
+      if (await A.$('[data-act="bgwdone"]')) eq('six cards turned over', (await A.$$('.vrev figure')).length, 6);
+    }
     continue;
   }
   if (await A.$('[data-act="bgwdone"]')) {

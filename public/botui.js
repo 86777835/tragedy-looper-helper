@@ -15,6 +15,9 @@ export const ARGS = {
 const PM = { doctor: [0], teacher: [0] };   // abilities where the leader picks +1 or −1 paranoia
 const STUDENT = id => CHARS[id].tags.includes('学生');
 const tgtName = t => t.startsWith('loc:') ? LOC_ZH[t.slice(4)] : CHARS[t].name;
+// Card and board images from 惨劇コモンズ 5th (public/img/c, see README for the licence).
+const IMG = 'img/c/';
+const cardSrc = (who, c) => `${IMG}${who === 'mm' ? 'mm' : `p${who}`}-${c}.webp`;
 
 let X;   // helpers from app.js: { esc, board, statusStrip, publicSheet, charCard, setRef, reviewCard, send, render, toast }
 export const initBot = h => { X = h; };
@@ -36,11 +39,56 @@ export function botPage(S, ui) {
   else if (S.stage === 'final') main = finalStep(S);
   else if (S.stage === 'over') main = overStep(S);
   return `${head}${main}
+    ${S.stage === 'play' || S.stage === 'loopEnd' ? `<h2 class="h"><span>版图</span><small>点角色看大图 · 实体版图照这里摆</small></h2>${vboard(S)}` : ''}
     ${newsBlock(S)}
-    ${S.stage === 'play' || S.stage === 'loopEnd' ? `<h2 class="h"><span>版图</span><small>点角色看角色卡 · 实体版图照这里摆</small></h2>${X.board(S, false)}` : ''}
     <h2 class="h"><span>公开信息</span></h2>${X.publicSheet(S.sheet, S.happened)}
     <details class="card ref" style="margin-top:8px"><summary>「${X.esc(S.sheet.set)}」模组速查：全部规则、身份、事件</summary>${X.setRef(setKey(S))}</details>
-    <a class="btn ghost" href="guide">规则介绍与常见问题</a>`;
+    <a class="btn ghost" href="guide">规则介绍与常见问题</a>
+    <footer>${CREDIT}</footer>`;
+}
+export const CREDIT = `卡图、版图和指示物来自<a href="https://bakafire.main.jp/rooper/sr_dl_04_sozai.htm" target="_blank" rel="noopener">惨劇コモンズ 5th</a>（惨劇コモンズ作成：BakaFire、紺ノ玲），依 CC BY-SA 2.1 JP 使用<br>原作《惨劇RoopeR》BakaFire Party`;
+
+// The cards lying on each target: face down until the reveal (the Protagonists' own cards face up, they typed them in).
+function cardsOn(S) {
+  const on = {}, pv = S.pv, add = (t, x) => (on[t] ||= []).push(x);
+  if (S.stage !== 'play') return on;
+  if (pv.revealed) for (const r of pv.revealed) add(r.tgt, { src: cardSrc(r.who, r.c), who: r.who });
+  else {
+    for (const t of pv.mmTargets || []) add(t, { src: cardSrc('mm', 'back'), who: 'mm' });
+    for (const [k, x] of Object.entries(pv.pro || {})) add(x.tgt, { src: cardSrc(+k, x.c), who: +k });
+  }
+  return on;
+}
+const minis = list => list ? `<span class="vmini">${list.map(x => `<img src="${x.src}" alt="">`).join('')}</span>` : '';
+const chip = (k, n, extra = '') => n ? `<span class="vt ${k}${extra}"><b>${n}</b></span>` : '';
+
+// The board as on the table: the four location boards, character cards with their tokens, and the day's action cards.
+function vboard(S) {
+  const on = cardsOn(S);
+  return `<div class="vboard">${LOCS.map(l => {
+    const here = Object.keys(S.ch).filter(id => S.ch[id].loc === l);
+    return `<div class="vloc" data-k="vl-${l}" style="background-image:linear-gradient(180deg,rgba(9,7,12,.35),rgba(9,7,12,.78)),url(${IMG}bd-${l}.webp)">
+      <div class="vlh"><b>${LOC_ZH[l]}</b>${S.sheet.turf === l ? `<img class="vturf" src="${IMG}turf.webp" alt="领地" title="大人物的领地">` : ''}${chip('i', S.bd[l])}${minis(on[`loc:${l}`])}</div>
+      <div class="vcs">${here.map(id => {
+        const c = S.ch[id], role = S.rev?.role?.[id], lim = c.p >= CHARS[id].limit && !c.dead;
+        return `<button class="vc${c.dead ? ' dead' : ''}" data-act="cinfo" data-id="${id}" data-k="vc-${id}">
+          <span class="vimg"><img src="${IMG}cs-${id}.webp" alt="${CHARS[id].name}">${minis(on[id])}
+          <span class="vtoks">${c.gd ? `<span class="vt gd"><b>护${c.gd > 1 ? c.gd : ''}</b></span>` : ''}${chip('g', c.g)}${chip('p', c.p, lim ? ' lim' : '')}${chip('i', c.i)}</span></span>
+          <span class="vn">${CHARS[id].name}</span>${role ? `<em>${X.esc(role)}</em>` : ''}</button>`;
+      }).join('') || '<span class="vnone">没有角色</span>'}</div></div>`;
+  }).join('')}</div>
+  <p class="vleg">${[['g', '友好'], ['p', '不安'], ['i', '密谋']].map(([k, n]) => `<span><i class="vt ${k}"></i>${n}</span>`).join('')}<span>白圈：不安达到限度</span></p>`;
+}
+// For the character sheet: the cards lying on this character right now.
+export function botCardsOn(S, id) {
+  const list = cardsOn(S)[id];
+  return list ? `<div class="vrev on">${list.map(x => `<figure><img src="${x.src}" alt=""><figcaption>${x.who === 'mm' ? (S.pv.revealed ? '剧作家' : '剧作家（背面）') : `主人公${x.who}`}</figcaption></figure>`).join('')}</div>` : '';
+}
+// The six cards turned over today, big enough to read.
+function revealedStrip(S) {
+  const r = S.pv.revealed;
+  if (!r) return '';
+  return `<div class="lbl" style="margin-top:12px">今天翻开的牌</div><div class="vrev" style="margin-top:6px">${r.map(x => `<figure><img src="${cardSrc(x.who, x.c)}" alt="${x.who === 'mm' ? MM[x.c] : PRO[x.c][0]}"><figcaption>${x.who === 'mm' ? '剧作家' : `主人公${x.who}`}<b>${X.esc(tgtName(x.tgt))}</b></figcaption></figure>`).join('')}</div>`;
 }
 
 function setupPage(S, ui) {
@@ -69,8 +117,8 @@ function cardsStep(S, ui) {
   const all = [1, 2, 3].every(k => pv.pro[k]);
   return `<div class="card pc"><div class="pc-head"><span class="pc-no">3<small>/9</small></span><div><b>主人公出牌</b><em>剧作家已经暗置 3 张牌。从队长开始，每套手牌各出 1 张</em></div></div>
     <div class="pc-body">
-      <div class="mm-down">${pv.mmTargets.map(t => `<span><i>?</i>${X.esc(tgtName(t))}</span>`).join('')}</div>
-      ${order.map(k => { const c = pv.pro[k]; return `<button class="seat${c ? ' set' : ''}" data-act="bseat" data-seat="${k}"><span class="sn">${k}</span><span class="st"><b>主人公 ${k}${k === pv.leader ? ' · 队长' : ''}</b><span>${c ? `「${PRO[c.c][0]}」→ ${X.esc(tgtName(c.tgt))}` : '点这里出牌'}</span></span><span class="go">›</span></button>`; }).join('')}
+      <div class="mm-down">${pv.mmTargets.map(t => `<span><img src="${cardSrc('mm', 'back')}" alt="">${X.esc(tgtName(t))}</span>`).join('')}</div>
+      ${order.map(k => { const c = pv.pro[k]; return `<button class="seat${c ? ' set' : ''}" data-act="bseat" data-seat="${k}">${c ? `<img class="seat-c" src="${cardSrc(k, c.c)}" alt="">` : `<img class="seat-c back" src="${cardSrc(k, 'back')}" alt="">`}<span class="st"><b>主人公 ${k}${k === pv.leader ? ' · 队长' : ''}</b><span>${c ? `「${PRO[c.c][0]}」→ ${X.esc(tgtName(c.tgt))}` : '点这里出牌'}</span></span><span class="go">›</span></button>`; }).join('')}
       <p class="hint" style="margin-top:8px">主人公之间不能把牌放在同一个目标上，可以叠在剧作家的牌上。</p>
     </div></div>
     <div class="dock" data-k="dock"><div class="dock-in"><button class="btn" data-act="breveal" ${all ? '' : 'disabled'}>${all ? '翻牌！' : `还差 ${[1, 2, 3].filter(k => !pv.pro[k]).length} 张`}</button></div></div>`;
@@ -81,7 +129,7 @@ function gwStep(S, ui) {
   const list = living(S).flatMap(id => (CHARS[id].gw || []).map(([need, text, fl], n) => ({ id, n, need, text, fl })))
     .filter(a => S.ch[a.id].g >= a.need);
   return `<div class="card pc"><div class="pc-head"><span class="pc-no">6<small>/9</small></span><div><b>主人公能力</b><em>队长宣言友好能力，剧作家决定结算还是拒绝。用完点下面的按钮</em></div></div>
-    <div class="pc-body">${list.length ? list.map(a => {
+    <div class="pc-body">${revealedStrip(S)}${list.length ? list.map(a => {
       const used = a.fl?.once && pv.gwUsed[`${a.id}:${a.n}`], early = a.fl?.from && S.loop < a.fl.from;
       return `<button class="gwb" data-act="bgw" data-ch="${a.id}" data-n="${a.n}" ${used || early ? 'disabled' : ''}><span class="gwn">友好 ${a.need}</span><b>${CHARS[a.id].name}</b><span>${X.esc(a.text)}${a.fl?.once ? '（每轮回 1 次）' : ''}${used ? ' · 本轮回已用' : ''}${early ? ` · 第 ${a.fl.from} 轮回起` : ''}</span></button>`;
     }).join('') : '<div class="pc-empty">现在没有角色的友好够用能力。</div>'}</div></div>
@@ -133,7 +181,7 @@ export function botSheet(S, ui) {
     const taken = Object.entries(pv.pro).filter(([k]) => +k !== s.seat).map(([, x]) => x.tgt);
     const c = ui.bc ?? mine?.c;
     return `<h3>主人公 ${s.seat} 出牌<small>${s.seat === pv.leader ? '队长' : ''}</small></h3>
-      <div class="lbl">1 选牌</div><div class="grid4 cardg">${Object.entries(PRO).map(([k, [n, once]]) => `<button class="${c === k ? 'on' : ''}" data-act="bcsel" data-c="${k}" ${once && used[k] ? 'disabled' : ''}>${n}${once ? '<small>每轮回1次</small>' : ''}</button>`).join('')}</div>
+      <div class="lbl">1 选牌</div><div class="cardg">${Object.entries(PRO).map(([k, [n, once]]) => `<button class="${c === k ? 'on' : ''}" data-act="bcsel" data-c="${k}" ${once && used[k] ? 'disabled' : ''}><img src="${cardSrc(s.seat, k)}" alt=""><span>${n}${once ? `<small>${used[k] ? '本轮回已用' : '每轮回1次'}</small>` : ''}</span></button>`).join('')}</div>
       <div class="lbl">2 放在哪里</div><div class="grid2">${targetsOf(S).map(t => `<button class="${(ui.bt ?? mine?.tgt) === t ? 'on' : ''}" data-act="btsel" data-t="${t}" ${taken.includes(t) ? 'disabled' : ''}>${X.esc(tgtName(t))}${pv.mmTargets.includes(t) ? ' ·剧' : ''}</button>`).join('')}</div>
       <p class="hint">「·剧」表示剧作家在那里放了牌。</p>
       <div class="btns" style="margin-top:12px">${mine ? '<button class="btn ghost" data-act="bctake" style="margin-top:0">收回这张</button>' : '<button class="btn ghost" data-act="close" style="margin-top:0">取消</button>'}<button class="btn" data-act="bcok" style="margin-top:0" ${(c && (ui.bt ?? mine?.tgt)) ? '' : 'disabled'}>放下</button></div>`;

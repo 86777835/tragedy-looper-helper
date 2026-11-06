@@ -2,7 +2,7 @@ import { PHASES, TOKENS, ONCE, FLAGS, reminders, loopEndChecks, roleOf, scriptOf
   LOCS, LOC_ZH, CHARS, ROLES, PLOTS, INCIDENTS, SETS, SCRIPT } from './logic.js';
 import { SCRIPTS } from './data.js';
 import { publicSheet, pubSheetOf, privateSheet, notesBlock, charCard, roleCard, setRef } from './views.js';
-import { initBot, botPage, botSheet, botClick, botChange } from './botui.js';
+import { initBot, botPage, botSheet, botClick, botChange, botCardsOn, CREDIT } from './botui.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -130,7 +130,7 @@ function landing() {
     <h2 class="h"><span>我的房间</span><small>本机当剧作家的房间</small></h2>
     <div class="list">${my.length ? my.map(r => `<button class="card lobby" data-act="rejoin" data-code="${r.code}" data-k="lb-${r.code}">
         <span class="lc">${r.code}</span><span class="lp">${r.key ? '剧作家' : '人机模式'}</span><span class="ls">${ago(r.t)}</span></button>`).join('') : '<div class="empty">还没有房间</div>'}</div>
-    <footer>非官方玩家工具 · 规则依据《惨剧RoopeR 5th》官方资料<br>封面为官方盒封面（Z-Man Games 英文版）的高清化版本，版权归原权利人</footer></div>`;
+    <footer>非官方玩家工具 · 规则依据《惨剧RoopeR 5th》官方资料<br>封面为官方盒封面（Z-Man Games 英文版）的高清化版本，版权归原权利人<br>${CREDIT}</footer></div>`;
 }
 function ago(t) { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.floor(m / 60)} 小时前` : `${Math.floor(m / 1440)} 天前`; }
 
@@ -394,7 +394,7 @@ function publicPage() {
     ${revItems.length ? `<h2 class="h"><span>已公开</span></h2><div class="card route"><ul class="dots">${revItems.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
     ${st.loops.length ? `<h2 class="h"><span>轮回记录</span></h2><div class="card route"><ul class="dots">${st.loops.map(l => `<li>第 ${l.n} 轮回：${l.lost ? `第 ${l.day} 天主人公失败` : '主人公获胜'}</li>`).join('')}</ul></div>` : ''}
     ${st.stage === 'over' ? reviewCard() : ''}
-    <footer>公开视图只显示桌上公开的信息</footer>`;
+    <footer>公开视图只显示桌上公开的信息<br>${CREDIT}</footer>`;
 }
 
 /* ---------- bottom sheets ---------- */
@@ -403,7 +403,7 @@ function sheetView() {
   let body = '';
   if (s.k === 'share') body = shareSheet();
   else if (s.k === 'bseat' || s.k === 'bgw') body = botSheet(S, ui);
-  else if (s.k === 'cinfo') body = `${charCard(s.id, S.rev?.role?.[s.id])}<button class="btn ghost" data-act="close">关闭</button>`;
+  else if (s.k === 'cinfo') body = `<img class="cardbig" src="img/c/ch-${s.id}.webp" alt="${CHARS[s.id].name}的角色卡">${S.pv ? botCardsOn(S, s.id) : ''}${charCard(s.id, S.rev?.role?.[s.id], false)}<button class="btn ghost" data-act="close">关闭</button>`;
   else if (role !== 'mm') { ui.sheet = null; return ''; }
   else if (s.k === 'char') body = charSheet(s.id);
   else if (s.k === 'bd') body = `<h3>${LOC_ZH[s.loc]}的密谋</h3><div class="stp" style="margin-top:12px">${tk('i', S.bd[s.loc])}<b>版图上的密谋</b>
