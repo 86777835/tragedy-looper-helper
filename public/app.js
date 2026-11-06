@@ -2,6 +2,7 @@ import { PHASES, TOKENS, ONCE, FLAGS, reminders, loopEndChecks, roleOf, scriptOf
   LOCS, LOC_ZH, CHARS, ROLES, PLOTS, INCIDENTS, SETS, SCRIPT } from './logic.js';
 import { SCRIPTS } from './data.js';
 import { publicSheet, pubSheetOf, privateSheet, notesBlock, charCard, roleCard, setRef } from './views.js';
+import { initBot, botPage, botSheet, botClick, botChange } from './botui.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -102,11 +103,11 @@ function view() {
   if (!code) return landing();
   if (noRoom) return `${hero()}<div class="wrap"><h2 class="h"><span>房间 ${code} 不存在</span></h2><p class="note">房间码可能输错了，或者房间已失效。</p><button class="btn" data-act="leave">返回首页</button></div>`;
   if (!S) return `${hero()}<div class="wrap"><h2 class="h"><span>正在连接房间 ${code}…</span></h2></div>`;
-  return bar() + `<div class="wrap" data-k="${role}-${S.stage}">` + (role === 'mm' ? mmView() : publicPage()) + '</div>';
+  return bar() + `<div class="wrap" data-k="${S.pv ? 'bot' : role}-${S.stage}">` + (role === 'mm' ? mmView() : S.pv ? botPage(S, ui) : publicPage()) + '</div>';
 }
 const hero = () => `<div class="hero" data-k="hero"><button class="nav-back" data-act="leave" data-html2canvas-ignore>‹ 首页</button><div class="en">TRAGEDY LOOPER</div><h1>惨剧轮回剧作家助手</h1><div class="orn"></div></div><div class="band"></div>`;
 const bar = () => `<div class="bar" data-k="bar"><button class="nav-back" data-act="leave" data-html2canvas-ignore>‹ 首页</button><span class="ttl">惨剧轮回</span>
-  <span class="who-tag ${role === 'mm' ? 'mm' : 'view'}">${role === 'mm' ? '剧作家·私密' : '公开视图'}</span>
+  <span class="who-tag ${role === 'mm' ? 'mm' : 'view'}">${role === 'mm' ? '剧作家·私密' : S?.pv ? '人机模式' : '公开视图'}</span>
   <button class="room" data-act="share"><small>房间</small>${code}</button><span class="conn ${online ? 'on' : ''}" title="${online ? '已连接' : '重新连接中'}"></span></div>`;
 
 function landing() {
@@ -116,6 +117,7 @@ function landing() {
     <div class="wrap" data-k="landing">
     <div class="card start">
       <button class="btn" data-act="create" ${ui.busy ? 'disabled' : ''}>我当剧作家：创建房间</button>
+      <button class="btn navy" data-act="createbot" ${ui.busy ? 'disabled' : ''}>人机模式：机器人当剧作家</button>
       <div class="or">主人公输入房间码，查看公开信息</div>
       <div class="join"><input id="joinCode" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="房间码"><button class="btn navy" data-act="join">进入</button></div>
       ${ui.err ? `<div class="err">${esc(ui.err)}</div>` : ''}
@@ -127,7 +129,7 @@ function landing() {
     </div>
     <h2 class="h"><span>我的房间</span><small>本机当剧作家的房间</small></h2>
     <div class="list">${my.length ? my.map(r => `<button class="card lobby" data-act="rejoin" data-code="${r.code}" data-k="lb-${r.code}">
-        <span class="lc">${r.code}</span><span class="lp">剧作家</span><span class="ls">${ago(r.t)}</span></button>`).join('') : '<div class="empty">还没有房间</div>'}</div>
+        <span class="lc">${r.code}</span><span class="lp">${r.key ? '剧作家' : '人机模式'}</span><span class="ls">${ago(r.t)}</span></button>`).join('') : '<div class="empty">还没有房间</div>'}</div>
     <footer>非官方玩家工具 · 规则依据《惨剧RoopeR 5th》官方资料<br>封面为官方盒封面（Z-Man Games 英文版）的高清化版本，版权归原权利人</footer></div>`;
 }
 function ago(t) { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.floor(m / 60)} 小时前` : `${Math.floor(m / 1440)} 天前`; }
@@ -400,6 +402,7 @@ function sheetView() {
   const s = ui.sheet;
   let body = '';
   if (s.k === 'share') body = shareSheet();
+  else if (s.k === 'bseat' || s.k === 'bgw') body = botSheet(S, ui);
   else if (s.k === 'cinfo') body = `${charCard(s.id, S.rev?.role?.[s.id])}<button class="btn ghost" data-act="close">关闭</button>`;
   else if (role !== 'mm') { ui.sheet = null; return ''; }
   else if (s.k === 'char') body = charSheet(s.id);
@@ -525,13 +528,13 @@ function showImage(url) {
 }
 
 /* ---------- actions ---------- */
-async function createRoom(sid) {
+async function createRoom(sid, bot = false) {
   ui.busy = true; ui.err = ''; render();
   try {
-    const r = await fetch('/api/room', { method: 'POST' });
+    const r = await fetch('/api/room', { method: 'POST', body: JSON.stringify({ bot }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || '创建失败');
-    remember(j.code, j.key);
+    remember(j.code, j.key || '');   // a robot room has no key
     location.href = `/?r=${j.code}${sid ? `&pick=${sid}` : ''}`;
   } catch (e) { ui.err = e.message || '网络出错，请重试'; ui.busy = false; render(); }
 }
@@ -543,6 +546,7 @@ document.addEventListener('click', async e => {
   if (b.tagName === 'INPUT' && b.type === 'checkbox') return;   // handled on change
   switch (a) {
     case 'create': return createRoom();
+    case 'createbot': return createRoom(null, true);
     case 'join': { const c = cleanCode($('#joinCode').value); if (!c) { ui.err = '房间码是 4 位字母或数字'; return render(); } location.href = `/?r=${c}`; return; }
     case 'rejoin': location.href = `/?r=${d.code}`; return;
     case 'leave': location.href = '/'; return;
@@ -557,6 +561,7 @@ document.addEventListener('click', async e => {
     case 'rv-send': return sendReview();
     case 'rv-edit': ui.rv.state = ''; return render();
   }
+  if (S?.pv && role !== 'mm' && botClick(S, ui, a, d)) return;
   if (role !== 'mm') return;
   switch (a) {
     case 'pick': if (d.sid !== S.sid) send({ t: 'pick', sid: d.sid, opt: 0 }); ui.place = {}; ui.choose = false; ui.toTop = true; return render();
@@ -606,6 +611,7 @@ document.addEventListener('input', e => {
   if (d.rv === 'name') ui.rv.name = e.target.value;
 });
 document.addEventListener('change', e => {
+  if (S?.pv && botChange(e.target)) return;
   const b = e.target.closest('[data-act]');
   if (!b || role !== 'mm') return;
   if (b.dataset.act === 'check') {
@@ -620,6 +626,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id
 // (The server answers every action with fresh state; invalid ones simply don't change it.)
 
 // Load the QR library, then start.
+initBot({ esc, board, statusStrip, publicSheet, charCard, setRef, reviewCard, send, render, toast });
 { const s = document.createElement('script'); s.src = 'vendor/qrcode.js'; s.onload = () => render(); document.head.appendChild(s); }
 render();
 connect();

@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { initialState, reduce, publicView, gameRecord } from '../public/logic.js';
+import { botInitial, botReduce } from './engine.js';
 import { SCRIPT, CHARS, ROLES, PLOTS, INCIDENTS, SETS, LOC_ZH } from '../public/data.js';
 import { NOTES } from '../public/notes.js';
 import GUIDE from '../tools/讲解稿.md';
@@ -14,11 +15,13 @@ export default {
     const url = new URL(req.url);
 
     // A new room. The key makes its holder the Mastermind; everyone else with the code only gets the public view.
+    // A robot room ({ bot: true }) has no key: nobody can become its Mastermind, the robot in the room plays it.
     if (url.pathname === '/api/room' && req.method === 'POST') {
+      let bot = false; try { bot = (await req.json())?.bot === true; } catch {}
       for (let i = 0; i < 6; i++) {
-        const code = newCode(), key = newKey();
-        const res = await env.ROOM.get(env.ROOM.idFromName(code)).fetch('https://room/init', { method: 'POST', body: JSON.stringify({ code, key }) });
-        if (res.ok) return Response.json({ code, key });
+        const code = newCode(), key = bot ? null : newKey();
+        const res = await env.ROOM.get(env.ROOM.idFromName(code)).fetch('https://room/init', { method: 'POST', body: JSON.stringify({ code, key, bot }) });
+        if (res.ok) return Response.json(bot ? { code, bot: true } : { code, key });
       }
       return Response.json({ error: '暂时无法创建房间，请重试' }, { status: 503 });
     }
@@ -231,8 +234,8 @@ export class Room extends DurableObject {
     const path = new URL(req.url).pathname;
     if (path === '/init') {
       if (this.s) return new Response('exists', { status: 409 });
-      const { code, key } = await req.json();
-      this.s = initialState(); this.key = key; this.undo = [];
+      const { code, key, bot } = await req.json();
+      this.s = bot ? botInitial() : initialState(); this.key = bot ? null : key; this.undo = [];
       await this.ctx.storage.put({ s: this.s, key, code, undo: [] });
       return new Response('ok');
     }
@@ -266,6 +269,7 @@ export class Room extends DurableObject {
   async webSocketMessage(ws, msg) {
     if (!this.s || typeof msg !== 'string' || msg.length > 4000) return;
     let m; try { m = JSON.parse(msg); } catch { return; }
+    if (this.s.mode === 'bot') return this.botMessage(ws, m);
     if (m.auth !== undefined) {
       if (!this.keyOk(m.auth)) { ws.send(JSON.stringify({ type: 'error', error: 'badkey' })); return; }
       ws.serializeAttachment({ mm: true });
@@ -283,6 +287,17 @@ export class Room extends DurableObject {
     const before = this.s;
     this.s = next;
     await this.ctx.storage.put({ s: next, undo: this.undo });
+    this.broadcast();
+    await this.record(before);
+  }
+
+  // Robot rooms: everyone at the table may act (place their cards, use goodwill abilities…); everyone gets the public view.
+  async botMessage(ws, m) {
+    const next = botReduce(this.s, m.action);
+    if (!next) { ws.send(JSON.stringify({ type: 'state', role: 'view', state: publicView(this.s) })); return; }   // rejected: resync the sender
+    const before = this.s;
+    this.s = next;
+    await this.ctx.storage.put({ s: next });
     this.broadcast();
     await this.record(before);
   }

@@ -458,10 +458,12 @@ export function reminders(S) {
 // Never the script name, roles, culprits, rules or the Mastermind's notes.
 export function publicView(s) {
   const v = { v: s.v, stage: s.stage, loop: s.loop, day: s.day, ph: s.ph };
+  if (s.mode === 'bot') v.pv = botPublic(s);
   if (!s.sid) return v;
   const sc = SCRIPT[s.sid], set = SETS[sc.set];
   v.sheet = { set: set.name, setRules: set.rules.slice(), loops: sc.opts[s.opt][0], days: sc.days, special: sc.special.slice(),
     incidents: sc.incidents.map(([day, kind]) => ({ day, name: INCIDENTS[kind].name })) };
+  if (sc.extra?.boss?.turf && s.ch?.boss) v.sheet.turf = sc.extra.boss.turf;   // the turf marker sits on the board (p18)
   if (s.stage === 'setup') return v;
   v.ch = Object.fromEntries(Object.entries(s.ch).map(([id, c]) => [id, { loc: c.loc, g: c.g, p: c.p, i: c.i, gd: c.gd, dead: c.dead }]));
   v.bd = { hospital: s.bd.hospital, shrine: s.bd.shrine, city: s.bd.city, school: s.bd.school };
@@ -476,6 +478,18 @@ export function publicView(s) {
   return v;
 }
 
+// Robot games: the public part of the robot's turn (s.pv), field by field. s.bot (its cards and plan) is never read here.
+// The robot's cards are public only once revealed; before that only their targets are.
+function botPublic(s) {
+  const p = s.pv, cp = o => JSON.parse(JSON.stringify(o ?? null));
+  const out = { step: p.step, chosen: p.chosen ?? null, np: p.np ?? null, leader: p.leader ?? null,
+    mmTargets: cp(p.mmTargets) || [], pro: cp(p.pro) || {}, revealed: cp(p.revealed),
+    mmUsed: cp(p.mmUsed) || {}, proUsed: cp(p.proUsed) || {}, gwUsed: cp(p.gwUsed) || {},
+    news: (p.news || []).map(n => ({ d: n.d, k: n.k, x: n.x })), guess: cp(p.guess) || {}, seen: cp(p.seen) || [] };
+  if (s.stage === 'over' && p.truth) out.truth = cp(p.truth);
+  return out;
+}
+
 // What the room keeps for a finished game.
 export function gameRecord(S) {
   if (S.stage !== 'over' || !S.gid) return null;
@@ -484,3 +498,6 @@ export function gameRecord(S) {
 }
 
 export { LOCS, LOC_ZH, CHARS, ROLES, PLOTS, INCIDENTS, SETS, SCRIPT };
+
+// Internals reused by the server-only robot Mastermind (src/engine.js, src/bot.js).
+export const core = { clone, hasRule, alive, living, sameArea, factorGains, ofRole, keyPersons, ev, newLoop, place, kill, proDie, afterEffects, incidentEffect, endLoop };
