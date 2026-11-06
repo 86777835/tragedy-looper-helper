@@ -2,7 +2,7 @@ import { PHASES, TOKENS, ONCE, FLAGS, reminders, loopEndChecks, roleOf, scriptOf
   LOCS, LOC_ZH, CHARS, ROLES, PLOTS, INCIDENTS, SETS, SCRIPT } from './logic.js';
 import { SCRIPTS } from './data.js';
 import { publicSheet, pubSheetOf, privateSheet, notesBlock, charCard, roleCard, setRef } from './views.js';
-import { initBot, botPage, botSheet, botClick, botChange, botCardsOn, CREDIT } from './botui.js';
+import { initBot, botPage, botSheet, botClick, botChange, botCardsOn, botRejected, CREDIT } from './botui.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -58,6 +58,7 @@ function connect() {
     const m = JSON.parse(e.data);
     if (m.type === 'state') { S = m.state; role = m.role; render(); }
     else if (m.type === 'error' && m.error === 'noroom') { noRoom = true; forget(code); ws.close(); render(); }
+    else if (m.type === 'error' && m.error === 'rejected') botRejected(ui, m);
     else if (m.type === 'error' && m.error === 'badkey') toast('剧作家密钥不对，现在是公开视图');
   };
   ws.onclose = () => { online = false; render(); if (!noRoom && code) setTimeout(connect, Math.min(5000, 400 * 2 ** retry++)); };
@@ -76,8 +77,9 @@ function morph(a, b) {
     if (!x) { a.appendChild(y); return; }
     if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || (x.nodeType === 1 && x.getAttribute('data-k') !== y.getAttribute('data-k'))) { a.replaceChild(y, x); return; }
     if (x.nodeType !== 1) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; return; }
-    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
-    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    const keep = n => n === 'open' && x.tagName === 'DETAILS';   // expanded or collapsed is the reader's choice
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name) && !keep(at.name)) x.removeAttribute(at.name);
+    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value && !keep(at.name)) x.setAttribute(at.name, at.value);
     if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') { if (x !== document.activeElement && x.type !== 'checkbox') x.value = x.tagName === 'TEXTAREA' ? y.value : y.getAttribute('value') ?? ''; if (x.type === 'checkbox') x.checked = y.hasAttribute('checked'); return; }
     if ('disabled' in x) x.disabled = y.hasAttribute('disabled');
     morph(x, y);
@@ -88,7 +90,9 @@ function render() {
   const t = document.createElement('div');
   t.innerHTML = view();
   morph($('#app'), t);
-  $('#sheet').innerHTML = ui.sheet && S ? sheetView() : '';
+  const sh = document.createElement('div');
+  sh.innerHTML = ui.sheet && S ? sheetView() : '';
+  morph($('#sheet'), sh);   // an open sheet keeps its scroll position when the room updates
   document.body.classList.toggle('has-dock', !!$('.dock'));
   if (ui.toTop && (ui.choose || S?.sid)) { ui.toTop = false; window.scrollTo(0, 0); }
   // keep the current phase in view on the phase strip

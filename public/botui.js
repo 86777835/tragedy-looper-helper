@@ -170,7 +170,7 @@ function newsBlock(S) {
   if (!news.length) return '';
   const days = [...new Set(news.map(n => n.d))];
   const cur = days.at(-1);
-  return `<h2 class="h"><span>发生了什么</span><small>本轮回</small></h2><div class="card news">${days.slice().reverse().map(d => `<details ${d === cur ? 'open' : ''}><summary>${d ? `第 ${d} 天` : '轮回开始'}</summary>${news.filter(n => n.d === d).map(n => `<div class="nw ${n.k}">${X.esc(n.x)}</div>`).join('')}</details>`).join('')}</div>`;
+  return `<h2 class="h"><span>发生了什么</span><small>本轮回</small></h2><div class="card news">${days.slice().reverse().map(d => `<details data-k="nw-${S.loop}-${d}-${d === cur}" ${d === cur ? 'open' : ''}><summary>${d ? `第 ${d} 天` : '轮回开始'}</summary>${news.filter(n => n.d === d).map(n => `<div class="nw ${n.k}">${X.esc(n.x)}</div>`).join('')}</details>`).join('')}</div>`;
 }
 
 /* ---------- sheets ---------- */
@@ -211,7 +211,7 @@ function gwSheet(S, ui, id, n) {
   if (PM[id]?.includes(n)) body += `<div class="lbl">加还是减</div><div class="grid2">${['+', '-'].map(x => `<button class="${a.pm === x ? 'on' : ''}" data-act="ba" data-key="pm" data-v="${x}">${x === '+' ? '+1 不安' : '−1 不安'}</button>`).join('')}</div>`;
   if (kind === 'aiInc' && a.k !== undefined) body += aiFx(S, a);
   const [need, text] = CHARS[id].gw[n];
-  return `<h3>${CHARS[id].name}的能力<small>友好 ${need}</small></h3><p class="hint">${X.esc(text)}</p>
+  return `<h3>${CHARS[id].name}的能力<small>友好 ${need}</small></h3><p class="hint">${X.esc(text)}</p>${ui.gwErr ? `<div class="err">没有生效：${X.esc(ui.gwErr)}</div>` : ''}
     ${kind === 'self' ? '' : `<div class="lbl">选择</div>${body}`}
     <div class="btns" style="margin-top:12px"><button class="btn ghost" data-act="close" style="margin-top:0">取消</button><button class="btn" data-act="bgwok" style="margin-top:0">宣言</button></div>`;
 }
@@ -243,16 +243,21 @@ export function botClick(S, ui, act, d) {
     case 'bcok': { const mine = S.pv.pro[ui.sheet.seat]; send({ t: 'pcard', seat: ui.sheet.seat, c: ui.bc ?? mine?.c, tgt: ui.bt ?? mine?.tgt }); ui.sheet = null; X.render(); return true; }
     case 'bctake': send({ t: 'pcard', seat: ui.sheet.seat, c: null }); ui.sheet = null; X.render(); return true;
     case 'breveal': send({ t: 'reveal' }); window.scrollTo(0, 0); return true;
-    case 'bgw': ui.ba = {}; open({ k: 'bgw', ch: d.ch, n: +d.n }); return true;
-    case 'ba': ui.ba[d.key] = d.num ? +d.v : d.v; if (d.key === 'k') ui.ba.fx = {}; X.render(); return true;
-    case 'bfx': (ui.ba.fx ||= {})[d.key] = d.v; X.render(); return true;
-    case 'bgwok': send({ t: 'gw', ch: ui.sheet.ch, n: ui.sheet.n, ...ui.ba }); ui.sheet = null; X.render(); return true;
+    case 'bgw': ui.ba = {}; ui.gwErr = ''; open({ k: 'bgw', ch: d.ch, n: +d.n }); return true;
+    case 'ba': ui.ba[d.key] = d.num ? +d.v : d.v; if (d.key === 'k') ui.ba.fx = {}; ui.gwErr = ''; X.render(); return true;
+    case 'bfx': (ui.ba.fx ||= {})[d.key] = d.v; ui.gwErr = ''; X.render(); return true;
+    case 'bgwok': ui.gwSent = { sheet: ui.sheet, ba: ui.ba }; send({ t: 'gw', ch: ui.sheet.ch, n: ui.sheet.n, ...ui.ba }); ui.sheet = null; X.render(); return true;
     case 'bgwdone': send({ t: 'gwDone' }); window.scrollTo(0, 0); return true;
     case 'bnext': send({ t: 'bnext' }); window.scrollTo(0, 0); return true;
     case 'bguessdone': send({ t: 'guessDone' }); return true;
     case 'breset': send({ t: 'breset' }); return true;
   }
   return false;
+}
+// The server refused an action: a goodwill declaration reopens its sheet with the choices made and the reason.
+export function botRejected(ui, m) {
+  if (m.t === 'gw' && ui.gwSent) { ui.sheet = ui.gwSent.sheet; ui.ba = ui.gwSent.ba; ui.gwErr = m.why || '这个能力现在不能用'; ui.gwSent = null; X.render(); return; }
+  X.toast(m.why || '这一步没有生效，请再试一次');
 }
 export function botChange(el) {
   if (el.dataset.bguess) { X.send({ t: 'guess', ch: el.dataset.bguess, role: el.value || null }); return true; }

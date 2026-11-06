@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { initialState, reduce, publicView, gameRecord } from '../public/logic.js';
-import { botInitial, botReduce } from './engine.js';
+import { botInitial, botReduce, gwProblem } from './engine.js';
 import { SCRIPT, CHARS, ROLES, PLOTS, INCIDENTS, SETS, LOC_ZH } from '../public/data.js';
 import { NOTES } from '../public/notes.js';
 import GUIDE from '../tools/讲解稿.md';
@@ -294,7 +294,12 @@ export class Room extends DurableObject {
   // Robot rooms: everyone at the table may act (place their cards, use goodwill abilities…); everyone gets the public view.
   async botMessage(ws, m) {
     const next = botReduce(this.s, m.action);
-    if (!next) { ws.send(JSON.stringify({ type: 'state', role: 'view', state: publicView(this.s) })); return; }   // rejected: resync the sender
+    if (!next) {   // rejected: resync the sender and say why, so the page doesn't just sit there
+      const a = m.action, gw = a?.t === 'gw' && this.s.stage === 'play' && this.s.pv.step === 'gw';
+      ws.send(JSON.stringify({ type: 'state', role: 'view', state: publicView(this.s) }));
+      if (a && typeof a === 'object') ws.send(JSON.stringify({ type: 'error', error: 'rejected', t: typeof a.t === 'string' ? a.t : null, why: gw ? gwProblem(this.s, a.ch, a.n, a) : null }));
+      return;
+    }
     const before = this.s;
     this.s = next;
     await this.ctx.storage.put({ s: next });

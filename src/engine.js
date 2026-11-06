@@ -348,8 +348,9 @@ const revealCul = (S, k) => { S.rev.cul[k] = true; const it = scriptOf(S).incide
 
 // Can this ability be declared now? Returns null if fine, else the reason (shown to the players).
 export function gwProblem(S, id, n, a) {
-  const c = S.ch[id], spec = GW[id]?.[n], card = CHARS[id].gw[n];
-  if (!c || c.dead || !spec || !card) return '这个能力现在不能用';
+  if (!Object.hasOwn(S.ch, id) || !Object.hasOwn(GW, id) || !Number.isInteger(n) || !GW[id][n] || !CHARS[id].gw[n]) return '这个能力现在不能用';
+  const c = S.ch[id], spec = GW[id][n], card = CHARS[id].gw[n];
+  if (c.dead) return '这个能力现在不能用';
   const [need, , fl] = card;
   if (c.g < need) return `友好不够（需要 ${need}）`;
   if (fl?.from && S.loop < fl.from) return `第 ${fl.from} 轮回起才能用`;

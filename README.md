@@ -197,6 +197,9 @@ python3 tools/build_guide.py tools/讲解稿.md public/guide.html tools/faq.json
 node tests/test_logic.mjs                                                  # 剧本数据校验 + 规则单元测试（不需要服务器）
 node tests/test_bot.mjs                                                    # 人机模式：结算规则、官方开局、120 局模拟对局逐帧查泄露（不需要服务器）
 node tests/test_bot_ui.mjs http://localhost:8821/ ./shots fs               # 人机模式：两台手机打完一局，旁听连接逐帧查泄露（fs 或 btx）
+node tests/fuzz_gw.mjs                                                     # 人机模式：每个剧本、每个友好能力随机参数各试多次，引擎不报错不卡（不需要服务器）
+node tests/test_gw_reject.mjs http://localhost:8821/                       # 人机模式：能力宣言被拒绝时，弹窗带着原因重新打开
+node tests/test_keep_open.mjs http://localhost:8821/                       # 别人操作时，展开的部分和打开的角色卡不会被收起
 node tests/test_leak.mjs http://localhost:8821/                            # 10 个剧本各一局：公开视图拿不到隐藏信息
 node tests/test_game.mjs http://localhost:8821/ ./shots                    # 两台手机打完一局「初学者剧本」
 node tests/test_review.mjs http://localhost:8821/ ./shots                  # 结算页评价卡（拦截总入口接口，不写线上数据）
