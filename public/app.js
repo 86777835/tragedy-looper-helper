@@ -116,7 +116,7 @@ const bar = () => `<div class="bar" data-k="bar"><button class="nav-back" data-a
 
 function landing() {
   const my = mine();
-  return `<div class="hero-art cover" data-k="hero"><a class="nav-back" href="https://boardgame.leisurecat.cloud" data-html2canvas-ignore>‹ 全部游戏</a><img src="img/hero.jpg" alt=""><div class="ht">
+  return `<div class="hero-art cover" data-k="hero"><a class="nav-back" href="https://boardgame.leisurecat.cloud" data-html2canvas-ignore>‹ 全部游戏</a><a class="nav-back rate-nav" href="https://boardgame.leisurecat.cloud/?rate=tl&back=${encodeURIComponent(location.href)}" data-html2canvas-ignore>★ 写评价</a><img src="img/hero.jpg" alt=""><div class="ht">
       <div class="hz">惨剧轮回剧作家助手</div><div class="hs">设好剧本 · 算清惨剧</div></div></div>
     <div class="wrap" data-k="landing">
     <div class="card start">

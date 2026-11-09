@@ -555,3 +555,5 @@ body.has-chat{padding-bottom:72px}
 .cref-img{float:right;width:46px;margin:0 0 4px 10px;border-radius:4px}
 footer a{color:inherit;text-decoration:underline}
 .cref{display:flow-root}
+/* 写评价: opens this game's review form on the hub, then 返回 comes back here */
+.hero-art > .rate-nav{left:auto;right:calc(env(safe-area-inset-right) + 12px)}
