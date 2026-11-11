@@ -82,7 +82,7 @@ try {
   await viewer.locator('.nav-back').click();
   await viewer.fill('#joinCode', code);
   await viewer.click('[data-act="join"]');
-  await viewer.waitForSelector('.boardg');
+  await viewer.waitForSelector('.vboard');
   for (let loop = 1; loop <= 3; loop++) {
     await page.click('[data-act="lose"]');
     await page.fill('#loseWhy', '导航本地测试');

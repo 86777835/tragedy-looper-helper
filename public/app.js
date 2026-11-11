@@ -2,7 +2,7 @@ import { PHASES, TOKENS, ONCE, FLAGS, reminders, loopEndChecks, roleOf, scriptOf
   LOCS, LOC_ZH, CHARS, ROLES, PLOTS, INCIDENTS, SETS, SCRIPT } from './logic.js';
 import { SCRIPTS } from './data.js';
 import { publicSheet, pubSheetOf, privateSheet, notesBlock, charCard, roleCard, setRef } from './views.js';
-import { initBot, botPage, botSheet, botClick, botChange, botCardsOn, botRejected, CREDIT } from './botui.js';
+import { initBot, botPage, botSheet, botClick, botChange, botCardsOn, botRejected, vboard, CREDIT } from './botui.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -245,8 +245,10 @@ function qrData(text) {
 
 function playView(sc) {
   const rem = reminders(S), cur = PHASES[S.ph], last = S.day === sc.days;
-  const next = S.ph < PHASES.length - 1 ? `<button class="btn" data-act="phnext">下一阶段：${PHASES[S.ph + 1].n}</button>`
-    : last ? `<button class="btn" data-act="endloop">结束本轮回</button>` : `<button class="btn" data-act="day">进入第 ${S.day + 1} 天</button>`;
+  // 必须结算 left in this phase: the button asks first instead of moving on (easy to miss at the table)
+  const must = (rem[cur.k] || []).filter(r => r.level === 'must').length, g = must ? ` data-guard="${must}"` : '';
+  const next = S.ph < PHASES.length - 1 ? `<button class="btn" data-act="phnext"${g}>下一阶段：${PHASES[S.ph + 1].n}</button>`
+    : last ? `<button class="btn" data-act="endloop"${g}>结束本轮回</button>` : `<button class="btn" data-act="day"${g}>进入第 ${S.day + 1} 天</button>`;
   const body = ui.all
     ? PHASES.map((p, i) => (rem[p.k] || []).length ? `<div class="pc-sub"><span>${i + 1}</span>${p.n}</div>${remList(rem[p.k])}` : '').join('')
     : remList(rem[cur.k] || []) || '<div class="pc-empty">这一阶段没有要你结算的东西，直接进入下一阶段。</div>';
@@ -388,8 +390,7 @@ function publicPage() {
   const res = st.stage === 'over' ? `<div class="mvp"><div class="crown">游戏结束</div><div class="nm">${st.result === 'pro' ? '主人公获胜' : '剧作家获胜'}</div></div>` : '';
   const lend = st.stage === 'loopEnd' ? `<div class="banner"><div><b>第 ${st.loop} 轮回结束</b>：${st.loops.at(-1)?.lost ? '主人公失败' : '主人公获胜'}</div></div>` : st.stage === 'final' ? `<div class="banner"><div><b>最终决战</b>：推理每个角色的身份</div></div>` : '';
   return `${res}${statusStrip(st, st.sheet.loops, st.sheet.days)}${lend}${st.stage === 'play' ? phaseStrip(st.ph, false) : ''}
-    ${board(st, false)}
-    <p class="legend" style="font-size:11.5px;color:var(--ink2);margin-top:6px">${tk('g', '友')} 友好 ${tk('p', '不')} 不安（白圈：达到不安限度） ${tk('i', '谋')} 密谋</p>
+    ${vboard(st)}
     <h2 class="h"><span>公开信息</span></h2>${publicSheet(st.sheet, st.happened)}
     <h2 class="h"><span>速查</span><small>点版图上的角色看角色卡</small></h2>
     <details class="card ref"><summary>登场角色：不安限度、属性、友好能力</summary><div class="ref-sec">${Object.keys(st.ch).map(id => charCard(id, st.rev?.role?.[id])).join('')}</div></details>
@@ -420,6 +421,8 @@ function sheetView() {
       <div class="btns"><button class="btn ghost" data-act="close">取消</button><button class="btn" data-act="loseok">确认</button></div>`;
   else if (s.k === 'note') body = `<h3>记一笔</h3><p class="hint">只记在剧作家的私密记录里，结算长图会列出来。</p><textarea class="pn" id="noteX" maxlength="120" placeholder="例如：主人公开始怀疑巫女"></textarea>
       <div class="btns"><button class="btn ghost" data-act="close">取消</button><button class="btn" data-act="noteok">记下</button></div>`;
+  else if (s.k === 'guard') body = `<h3>还有 ${s.n} 项「必须结算」没处理</h3><p class="hint">条件满足时规则不让你选，比如杀人狂杀人、事件发生。确实已经在桌上处理过（或判断有误）再继续。</p>
+      <div class="btns"><button class="btn ghost" data-act="close">回去结算</button><button class="btn" data-act="${s.act}" data-go="1">仍然继续</button></div>`;
   else if (s.k === 'reset') body = `<h3>在这个房间再开一局？</h3><p class="hint">回到选剧本。这局已经存档，不会丢。</p><div class="btns"><button class="btn ghost" data-act="close">取消</button><button class="btn" data-act="resetok">再开一局</button></div>`;
   return `<div class="mask" data-act="close"></div><div class="sheet">${body}</div>`;
 }
@@ -588,9 +591,11 @@ document.addEventListener('click', async e => {
     }
     case 'kill': send({ t: 'ch', id: d.id, dead: true, why: d.why }); toast(`已结算：${CHARS[d.id].name}死亡`); return;
     case 'ph': send({ t: 'ph', to: +d.to }); return;
-    case 'phnext': send({ t: 'ph', to: S.ph + 1 }); return;
-    case 'day': send({ t: 'day', from: S.day }); return;
-    case 'endloop': send({ t: 'endLoop' }); return;
+    case 'phnext': case 'day': case 'endloop':
+      if (d.guard && !d.go) { ui.sheet = { k: 'guard', act: a, n: +d.guard }; return render(); }
+      ui.sheet = null;
+      if (a === 'phnext') send({ t: 'ph', to: S.ph + 1 }); else if (a === 'day') send({ t: 'day', from: S.day }); else send({ t: 'endLoop' });
+      return render();
     case 'all': ui.all = !ui.all; return render();
     case 'undo': sendRaw({ undo: true }); return;
     case 'lose': ui.sheet = { k: 'lose', why: d.why || '', death: !!d.death }; return render();

@@ -65,14 +65,14 @@ yes('public view shows incident schedule', t.includes('自杀') && t.includes('�
 // loop 1
 await mm.click('text=开始第 1 轮回');
 await mm.waitForSelector('.boardg');
-await pro.waitForSelector('.boardg');
+await pro.waitForSelector('.vboard');
 await shot(mm, '04-board');
 // reference: Mastermind's 速查 tab, Protagonist taps a character
 await mm.click('[data-act="tab"][data-tab="ref"]'); await mm.waitForSelector('.rref');
 yes('速查 tab lists this script\'s roles with who has them', (await mm.textContent('.ref-sec')).includes('谋杀计划') && await mm.isVisible('.rref >> text=关键人物'));
 await shot(mm, '04b-ref');
 await mm.click('[data-act="tab"][data-tab="game"]'); await mm.waitForSelector('.pc');
-await pro.click('.cc[data-id="doctor"]'); await pro.waitForSelector('.sheet .cref');
+await pro.click('.vc[data-id="doctor"]'); await pro.waitForSelector('.sheet .cref');
 const card = await pro.textContent('.sheet .cref');
 yes('public view: character card shows limit and goodwill abilities', card.includes('不安限度') && card.includes('友好 2'));
 eq('public view: character card shows no role', ['主谋', '关键人物', '杀手'].filter(w => card.includes(w)), []);
@@ -87,6 +87,11 @@ await mm.click('.sheet [data-act="close"]');
 for (let i = 0; i < 8; i++) await mm.click('[data-act="phnext"]').then(settle);
 yes('turn end: serial killer must kill', await mm.isVisible('.ri.must >> text=杀人狂（巫女）'));
 await shot(mm, '06-reminders');
+// moving on with a 必须结算 left asks first; going back keeps the day
+await mm.click('.dock [data-act="day"]'); await mm.waitForSelector('.sheet >> text=必须结算');
+yes('skipping a must item asks first', await mm.isVisible('.sheet [data-act="day"][data-go="1"]'));
+await mm.click('.sheet [data-act="close"]'); await settle();
+yes('still on day 1 after going back', (await mm.textContent('.status .t')).includes('第1/3天'));
 await mm.click('.ri.must [data-act="kill"]');
 await mm.waitForSelector('text=第 1 轮回结束');
 yes('loop 1 lost because the key person died', await mm.isVisible('text=关键人物（女学生）死亡'));

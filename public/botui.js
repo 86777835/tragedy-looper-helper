@@ -51,7 +51,7 @@ export const CREDIT = `卡图、版图和指示物来自<a href="https://bakafir
 // The cards lying on each target: face down until the reveal (the Protagonists' own cards face up, they typed them in).
 function cardsOn(S) {
   const on = {}, pv = S.pv, add = (t, x) => (on[t] ||= []).push(x);
-  if (S.stage !== 'play') return on;
+  if (S.stage !== 'play' || !pv) return on;   // no robot (the Mastermind's own game): no cards to show
   if (pv.revealed) for (const r of pv.revealed) add(r.tgt, { src: cardSrc(r.who, r.c), who: r.who });
   else {
     for (const t of pv.mmTargets || []) add(t, { src: cardSrc('mm', 'back'), who: 'mm' });
@@ -63,7 +63,8 @@ const minis = list => list ? `<span class="vmini">${list.map(x => `<img src="${x
 const chip = (k, n, extra = '') => n ? `<span class="vt ${k}${extra}"><b>${n}</b></span>` : '';
 
 // The board as on the table: the four location boards, character cards with their tokens, and the day's action cards.
-function vboard(S) {
+// Also the Protagonists' board when a person is the Mastermind.
+export function vboard(S) {
   const on = cardsOn(S);
   return `<div class="vboard">${LOCS.map(l => {
     const here = Object.keys(S.ch).filter(id => S.ch[id].loc === l);
