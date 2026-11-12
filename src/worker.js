@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { initialState, reduce, publicView, gameRecord } from '../public/logic.js';
 import { botInitial, botReduce, gwProblem } from './engine.js';
-import { SCRIPT, CHARS, ROLES, PLOTS, INCIDENTS, SETS, LOC_ZH } from '../public/data.js';
+import { SCRIPT, SCRIPTS, CHARS, ROLES, PLOTS, INCIDENTS, SETS, LOC_ZH } from '../public/data.js';
 import { NOTES } from '../public/notes.js';
 import GUIDE from '../tools/讲解稿.md';
 import FAQ from '../tools/faq.json';
@@ -74,12 +74,32 @@ async function checkDeepSeek(env) {
   }
 }
 
+// Web search (2026-11-12, ported from the Pittsburgh helper): when the tutorial and FAQ don't cover a rules question,
+// the model replies only with WEB_MARK + English search words. The server then asks DeepSeek's search API and answers
+// again from the results. Those answers are labelled by the page as web discussion the site has not checked, with sources.
+// Hidden information: the search words and the second round never carry the script being played (see web() in chat()).
+const WEB_MARK = '【需联网】';
+const WEB_RESULTS = 6;
+const WEB_NONE = '本站资料里没有这一条，网上也没找到可靠的说法。建议翻一下规则书，或者问问桌上的老玩家。';
+const webSystem = results => `你是「惨剧轮回规则助手」，解答桌游《惨剧轮回》（Tragedy Looper，日文名 惨劇RoopeR，BakaFire 设计）的规则问题。本站整理的资料里没有这个问题的答案，下面是联网搜索到的网页摘要。
+
+回答要求：
+- 只依据这些摘要作答，用 [1] [2] 这样的编号注明依据哪条。
+- 优先采信设计者（BakaFire）、出版社或规则书原文的说法；网友的说法要说明是网友观点；不同版本（旧版、5th、英文版）或说法冲突时直接指出来。
+- 摘要里没有可靠答案就直接说没找到，不要自己推测规则。
+- 只谈通用规则，不猜测、不分析任何具体剧本里谁是什么身份。
+- 用简体中文，简短直接：先给结论，再补一两句理由。可以用短列表，不要用表格和标题。
+
+${results.map((r, i) => `[${i + 1}] ${r.title}（${r.site}）\n${r.summary}`).join('\n\n')}`;
+
 const RULES_SYSTEM = `你是「惨剧轮回规则助手」，解答桌游《惨剧轮回》（Tragedy Looper，BakaFire 设计，中文版依据日版 5th）的规则问题，也可以解释本网站「惨剧轮回剧作家助手」怎么用。
 
 回答要求：
-- 只依据下面的「规则讲解」和「常见问题」作答，它们整理自官方规则书和官方 FAQ。资料里没有的内容，直接说资料里没有、建议翻规则书或问剧作家，不要编造规则。
-- 你可能正被主人公玩家使用。只回答通用规则，不谈任何具体剧本：不猜测、不透露、不分析某个剧本里谁是什么身份、规则X/Y 是什么、事件当事人是谁、剧作家怎么赢。被问到这些，就说这属于剧本的隐藏信息，规则助手不回答。
-- 与本游戏无关的问题，礼貌说明你只解答惨剧轮回规则。
+- 只依据下面的「规则讲解」和「常见问题」作答，它们整理自官方规则书和官方 FAQ，不要编造规则。
+- 资料里找不到答案的惨剧轮回通用规则问题，不要自己回答，也不要解释为什么查不到：整个回复只有一行，以${WEB_MARK}开头，后面接一组英文搜索词，以 Tragedy Looper 开头，必要时加上日文名 惨劇RoopeR，例如：${WEB_MARK}Tragedy Looper Time Traveler goodwill refusal timing。网站会去网上查。搜索词只写通用的规则概念（身份、事件、能力、阶段的英文名），不写剧本名，也不写哪个角色是什么身份。
+- 你可能正被主人公玩家使用。只回答通用规则，不谈任何具体剧本：不猜测、不透露、不分析某个剧本里谁是什么身份、规则X/Y 是什么、事件当事人是谁、剧作家怎么赢。被问到这些，就说这属于剧本的隐藏信息，规则助手不回答，也不要输出${WEB_MARK}。
+- 注意区分：隐藏信息只指某一局、某个剧本里“哪个角色是什么身份、用了哪条规则、谁是事件当事人”。身份、规则X/Y、事件、模组本身是什么、有什么能力和效果，是公开的通用规则（扩展模组的也一样，都印在模组速查表上），例如「Midnight Circle 的杀人狂和基础版有什么不同」「幽灵这个身份有什么能力」，要照常回答，本站资料里没有的照上面的方法联网。
+- 与本游戏无关的问题，礼貌说明你只解答惨剧轮回规则，不要输出${WEB_MARK}。
 - 用简体中文，简短直接：先给结论，再补一两句理由或例子。可以用短列表，不要用表格和标题。
 
 本网站怎么用：剧作家用手机建房间，在私密视图里选剧本、看设置清单和路线建议，对局中记录轮回、天数、阶段、各角色位置和友好/不安/密谋，按阶段看提醒，最后结算并保存长图。主人公扫码或输入房间码进入公开视图，只能看到公开信息卡、版图和指示物。
@@ -97,7 +117,7 @@ function scriptSystem(sid) {
     const ex = (sc.extra || {})[c] || {};
     return `${CHARS[c].name}：${ROLES[r].name}${ex.enterLoop ? `（第 ${ex.enterLoop} 轮回才登场）` : ''}${ex.enterDay ? `（第 ${ex.enterDay} 天才登场）` : ''}${ex.turf ? `（领地：${LOC_ZH[ex.turf]}）` : ''}`;
   }).join('；');
-  return `${RULES_SYSTEM.replace(/- 你可能正被主人公玩家使用[\s\S]*?规则助手不回答。\n/, '- 现在是剧作家的私密视图，可以讨论下面这个剧本的隐藏信息和打法。\n')}
+  return `${RULES_SYSTEM.replace(/- 你可能正被主人公玩家使用[^\n]*\n/, '- 现在是剧作家的私密视图，可以讨论下面这个剧本的隐藏信息和打法。\n')}
 
 # 当前剧本（隐藏信息，只给剧作家）
 ${sc.no}「${sc.zh}」（${sc.jp}），模组 ${set.name}，${sc.days} 天，轮回数/难度：${sc.opts.map(([l, d]) => `${l} 轮回·难度 ${d}`).join('，')}
@@ -121,18 +141,61 @@ async function chat(req, env) {
     && (sid === undefined || Object.hasOwn(SCRIPT, sid));
   if (!valid) return Response.json({ error: '问题格式不对，请刷新页面再试' }, { status: 400 });
   console.log('chat question', JSON.stringify(msgs.at(-1).content));   // what players ask, for the usage brief
-  const system = sid ? scriptSystem(sid) : RULES_SYSTEM;
-  const messages = [{ role: 'system', content: system }, ...msgs.slice(-10).map(m => ({ role: m.role, content: m.content }))];
+  const history = msgs.slice(-10).map(m => ({ role: m.role, content: m.content }));
+  let messages = [{ role: 'system', content: sid ? scriptSystem(sid) : RULES_SYSTEM }, ...history];
   const fails = [];   // HTTP status, 0 = unreachable or error, 'queue' = no answer started in time or stalled
   const order = await env.CHAT_STATE.get(DEEPSEEK_DOWN) ? ORDER.deepseekDown : ORDER.normal;
   let cur = await firstAnswer(order, 0, env, messages, fails);
   if (!cur) return Response.json({ error: chatFailed(fails) }, { status: 502 });
   const enc = new TextEncoder(), dec = new TextDecoder();
   const event = o => enc.encode(`data: ${JSON.stringify(o)}\n\n`);
-  let lastData = Date.now();
+  const say = text => event({ choices: [{ delta: { content: text } }] });
+  let lastData = Date.now(), searched = false, raw = '', pend = '';   // raw: the current model's stream so far, as text
+  // Only whole lines go to the page, so dropping the rest of a model's stream (search, backup model) never leaves it half a line.
+  // Returns whether anything went out.
+  const forward = (c, text) => {
+    pend += text;
+    const cut = pend.lastIndexOf('\n') + 1;
+    if (cut) { c.enqueue(enc.encode(pend.slice(0, cut))); pend = pend.slice(cut); }
+    return cut > 0;
+  };
+  const headText = () => cur.head.map(v => dec.decode(v, { stream: true })).join('');
+  // The model asked to search: tell the page, search, then answer again from the results. Returns false when the
+  // stream is finished (nothing found, or no model answered), true when `cur` is the answer from the results.
+  async function web(c, query) {
+    cur.reader.cancel().catch(() => {});
+    searched = true;
+    c.enqueue(event({ searching: true }));
+    query = scrubQuery(query);
+    // the Mastermind's own question may mention the script: the search service then only gets the search words
+    const found = await webSearch(env, query, sid ? query || 'Tragedy Looper rules' : history.at(-1).content);
+    console.log('chat web search', JSON.stringify(query), found ? found.length : 'failed');   // for the usage brief: questions the FAQ lacks
+    if (!found?.length) {
+      c.enqueue(event({ web: [] }));
+      c.enqueue(say(found ? WEB_NONE : '本站资料里没有这一条，联网查找也失败了，请过一会儿再问，或者翻一下规则书。'));
+      c.close(); return false;
+    }
+    // The second round knows no script: on the Mastermind's view, earlier answers (which may discuss it) are left out.
+    messages = [{ role: 'system', content: webSystem(found) }, ...(sid ? history.filter(m => m.role === 'user') : history)];
+    const next = await firstAnswer(order, 0, env, messages, fails);
+    if (!next) { c.enqueue(event({ error: chatFailed(fails) })); c.close(); return false; }
+    cur = next; lastData = Date.now(); raw = ''; pend = '';
+    c.enqueue(event({ web: found.map(r => ({ title: r.title, url: r.url, site: r.site })) }));
+    return true;
+  }
+  // Before anything reaches the page, look at how the answer starts. The search itself runs in the first pull:
+  // Workers starts pulling without waiting for an async start().
+  let query = await webQuery(cur);
   const stream = new ReadableStream({
-    start(c) { cur.head.forEach(v => c.enqueue(v)); },
+    start(c) { if (query === null) { raw = headText(); forward(c, raw); } },
     async pull(c) {
+      if (query !== null) {
+        const q = query; query = null;
+        if (await web(c, q)) forward(c, headText());
+        return;
+      }
+      // A pull that sends nothing is never followed by another one: read on until a whole line can go out.
+      for (;;) {
       // Keep-alive comments don't count as progress: only data lines do.
       let timer, r;
       const stall = new Promise(ok => { timer = setTimeout(() => ok('stall'), Math.max(0, lastData + STALL_MS - Date.now())); });
@@ -144,20 +207,112 @@ async function chat(req, env) {
         cur.reader.cancel().catch(() => {});
         const next = await firstAnswer(order, cur.k + 1, env, messages, fails);
         if (!next) { c.enqueue(event({ error: chatFailed(fails) })); return c.close(); }
-        cur = next; lastData = Date.now();
+        cur = next; lastData = Date.now(); raw = ''; pend = '';
         c.enqueue(event({ reset: CHAT_MODELS[cur.i].name }));   // the page drops the partial answer and starts over
-        cur.head.forEach(v => c.enqueue(v));
+        // the backup model may ask to search too (only from the tutorial-and-FAQ round)
+        const q2 = searched ? null : await webQuery(cur);
+        if (q2 !== null && !(await web(c, q2))) return;
+        const head = headText();
+        if (!searched) raw = head;
+        forward(c, head);
         return;
       }
-      if (r.done) return c.close();
-      if (dec.decode(r.value, { stream: true }).includes('data:')) lastData = Date.now();
-      c.enqueue(r.value);
+      if (r.done) { if (pend) c.enqueue(enc.encode(pend)); return c.close(); }
+      const piece = dec.decode(r.value, { stream: true });
+      if (piece.includes('data:')) lastData = Date.now();
+      if (!searched) {
+        // The model sometimes explains first and asks to search at the end: stop there and search instead
+        // (the page clears what it showed when the search starts).
+        raw += piece;
+        const text = sseText(raw), at = text.indexOf(WEB_MARK);
+        if (at >= 0) {
+          const q = (text.slice(at + WEB_MARK.length) + await restText(cur)).trim().split('\n')[0].trim().slice(0, 120);
+          console.log('chat web mark mid-answer');
+          if (await web(c, q)) forward(c, headText());
+          return;
+        }
+      }
+      if (forward(c, piece)) return;
+      }
     },
     cancel() { cur.reader.cancel().catch(() => {}); }
   });
   const h = { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' };
   if (cur.i) h['x-chat-fallback'] = CHAT_MODELS[cur.i].name;
   return new Response(stream, { headers: h });
+}
+
+// Text of the answer in a model's raw stream (DeepSeek and Workers AI both send OpenAI-style chunks).
+function sseText(raw) {
+  let text = '';
+  for (const line of raw.split('\n')) {
+    if (!line.startsWith('data:')) continue;
+    try { const j = JSON.parse(line.slice(5)); text += j.choices?.[0]?.delta?.content ?? j.response ?? ''; } catch {}
+  }
+  return text;
+}
+const streamText = chunks => { const dec = new TextDecoder(); return sseText(chunks.map(v => dec.decode(v, { stream: true })).join('')); };
+
+// The rest of a model's answer as text (for the search words after the marker), waiting at most STALL_MS.
+async function restText(cur) {
+  const dec = new TextDecoder(), until = Date.now() + STALL_MS;
+  let raw = '';
+  for (;;) {
+    let r;
+    try { r = await Promise.race([cur.reader.read(), new Promise(ok => setTimeout(() => ok({ done: true }), Math.max(0, until - Date.now())))]); } catch { r = { done: true }; }
+    if (r.done) return sseText(raw);
+    raw += dec.decode(r.value, { stream: true });
+  }
+}
+
+// Reads ahead (into cur.head) until the answer's first characters show whether it is a search request.
+// Returns the search words, or null for an ordinary answer. Stops reading after STALL_MS; the stream's own stall check takes over.
+async function webQuery(cur) {
+  const until = Date.now() + STALL_MS;
+  for (;;) {
+    const text = streamText(cur.head).trimStart();
+    const marked = text.startsWith(WEB_MARK);
+    if (!marked && (text.length >= WEB_MARK.length || !WEB_MARK.startsWith(text))) return null;
+    let r;
+    try { r = await Promise.race([cur.reader.read(), new Promise(ok => setTimeout(() => ok('late'), Math.max(0, until - Date.now())))]); } catch { r = { done: true }; }
+    if (r === 'late') return marked ? text.slice(WEB_MARK.length).trim().slice(0, 120) : null;
+    if (r.done) return marked ? text.slice(WEB_MARK.length).trim().slice(0, 120) : null;
+    cur.head.push(r.value);
+  }
+}
+
+// Search words never carry a script's name (the model on the Mastermind's view knows which one is being played).
+const SCRIPT_NAMES = SCRIPTS.flatMap(x => [x.zh, x.jp, x.en, x.no]).filter(Boolean).sort((a, b) => b.length - a.length);
+function scrubQuery(q) {
+  for (const n of SCRIPT_NAMES) q = q.replace(new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
+  return q.replace(/\s+/g, ' ').trim();
+}
+
+// DeepSeek's search API. Rules questions are best answered in BoardGameGeek's forums (designers often reply there),
+// so BGG goes first; with fewer than 3 results there, the whole web. Returns [{ title, url, site, summary }]
+// (possibly empty), or null when the search failed.
+async function webSearch(env, query, question) {
+  query ||= `Tragedy Looper ${question}`;
+  const bgg = await searchOnce(env, `${query} site:boardgamegeek.com`.slice(0, 128), question);
+  if (bgg === null || bgg.length >= 3) return bgg;
+  const all = await searchOnce(env, query.slice(0, 128), question);
+  if (all === null) return bgg;
+  const seen = new Set(bgg.map(r => r.url));
+  return [...bgg, ...all.filter(r => !seen.has(r.url))].slice(0, WEB_RESULTS);
+}
+async function searchOnce(env, query, question) {
+  const base = env.DEEPSEEK_BASE || 'https://api.deepseek.com';   // DEEPSEEK_BASE: set only by the local tests
+  try {
+    const r = await fetch(`${base}/v1/tools/search`, {
+      method: 'POST', signal: AbortSignal.timeout(6000),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
+      body: JSON.stringify({ query, ori_question: question.slice(0, 128), count: 10 })
+    });
+    if (!r.ok) { console.log('chat web search error', r.status, (await r.text()).slice(0, 300)); return null; }
+    const { results = [] } = await r.json();
+    return results.filter(x => x.url && (x.summary || x.snippet)).slice(0, WEB_RESULTS)
+      .map(x => ({ title: x.title || x.url, url: x.url, site: x.site_name || new URL(x.url).hostname, summary: (x.summary || x.snippet).slice(0, 900) }));
+  } catch (e) { console.log('chat web search failed', String(e).slice(0, 200)); return null; }
 }
 
 const chatFailed = fails => fails.some(f => f === 503 || f === 429 || f === 'queue')   // overloaded / throttled / queueing

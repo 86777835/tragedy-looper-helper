@@ -557,3 +557,10 @@ footer a{color:inherit;text-decoration:underline}
 .cref{display:flow-root}
 /* 写评价: opens this game's review form on the hub, then 返回 comes back here */
 .hero-art > .rate-nav{left:auto;right:calc(env(safe-area-inset-right) + 12px)}
+/* rules assistant: answers found on the web */
+.cweb{margin:-2px 0 6px;padding:5px 8px;border-radius:7px;background:rgba(205,176,122,.14);border:1px solid rgba(205,176,122,.3);font:500 12px/1.5 var(--sans);color:var(--ink2)}
+.cweb b{color:var(--gold2)}
+.csrc{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line2);font:12px/1.5 var(--sans);color:var(--ink2)}
+.csrc a{display:block;color:#c8b6ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csrc i{margin-left:6px;font-style:normal;color:var(--ink2);opacity:.7}
+.cwait{display:block;margin-bottom:4px;font:500 12.5px var(--sans);color:var(--ink2)}

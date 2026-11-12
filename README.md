@@ -124,6 +124,13 @@
 - 默认是**规则问答**：提示词里只有规则讲解和常见问题，没有任何剧本数据，并要求它不谈具体剧本——主人公也能用。
 - 剧作家的私密视图（以及剧本库的剧本页）多一个**本剧本问答**：只有这时请求里才带剧本编号，服务端才把这个剧本的设置和本站的路线建议放进提示词。
 
+**联网查找（2026-11-12，照匹兹堡移植）**：讲解稿和常见问题里没有答案的通用规则问题，模型只回一行「【需联网】+英文搜索词」（以 Tragedy Looper 开头，必要时加日文名 惨劇RoopeR），服务器转去调 DeepSeek 的搜索接口（`/v1/tools/search`，先只搜 BGG，不足 3 条再搜全网，最多 6 条），再让模型只依据搜到的摘要作答、用 [1] [2] 标出处。页面在这类回答上方固定显示「本站资料没有这一条，以下来自网上讨论，本站未核对」，下面列来源链接；搜不到或搜索失败就明说，不编。问具体剧本的隐藏信息、或与本游戏无关的问题，不联网。剧作家视图、公开视图、人机模式都能用（同一个接口）。每次联网在日志里记一条 `chat web search`。
+
+联网时的隐藏信息保护（本剧本问答的模型知道剧本真相，所以多做三层）：
+- 提示词要求搜索词只写通用规则概念，不写剧本名、不写谁是什么身份；服务器再从搜索词里删掉所有剧本的中/日/英文名和编号。
+- 本剧本问答联网时，搜索接口只收到搜索词，不收到剧作家打的原问题。
+- 依据搜索结果作答的第二轮不带剧本数据，对话历史只留提问、不留之前谈过剧本的回答。
+
 ## 隐藏信息怎么防
 
 - 建房间时服务端生成房间码和 128 位随机密钥，密钥只存在剧作家的手机（localStorage）里。
@@ -204,6 +211,7 @@ node tests/test_leak.mjs http://localhost:8821/                            # 10 
 node tests/test_game.mjs http://localhost:8821/ ./shots                    # 两台手机打完一局「初学者剧本」
 node tests/test_review.mjs http://localhost:8821/ ./shots                  # 结算页评价卡（拦截总入口接口，不写线上数据）
 node tests/test_chat.mjs http://localhost:8821/ ./shots --mock-upstream    # 规则助手（wrangler dev 需加 --test-scheduled --var DEEPSEEK_API_KEY:fake --var DEEPSEEK_BASE:http://127.0.0.1:8822 --var CHAT_CF_MODEL:@cf/none/missing）
+node tests/test_chat.mjs http://localhost:8821/ ./shots --mock-web         # 联网查找（同上的 wrangler dev 参数；和上一条隔 1 分钟跑，避开每分钟 8 问的限流）
 node tests/test_chat.mjs https://你的域名/ ./shots --live                   # 规则助手线上实问一次
 ```
 

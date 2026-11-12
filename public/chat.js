@@ -2,7 +2,7 @@
 // Everyone gets the rules mode, which knows no script. On the Mastermind's private view (app.js sets
 // window.tlChatScript), a second mode answers questions about the script being played.
 const MODES = {
-  rules: { title: '惨剧轮回规则助手', sub: '依据规则讲解与常见问题作答', av: '规', gold: false,
+  rules: { title: '惨剧轮回规则助手', sub: '依据规则书作答，查不到会联网找', av: '规', gold: false,
     sug: ['友好无视和必定无视友好有什么区别？', '事件什么时候一定会发生？', '轮回结束时要重置哪些东西？', '杀人狂的能力怎么结算？'],
     welcome: ['有规则问题，尽管问', '出牌、能力、事件、轮回结算……桌上起了争议也可以问我'], ph: '问规则，比如：时间旅者怎么判负？' },
   script: { title: '本剧本问答', sub: '仅剧作家可见 · 会谈到剧本真相', av: '本', gold: true,
@@ -51,9 +51,13 @@ function paint() {
   box.placeholder = m.ph;
   log.innerHTML = `<div class="cwel"><img src="img/${mode === 'script' ? 'chat-script' : 'chat'}.jpg" alt=""><div><b>${m.welcome[0]}</b><span>${m.welcome[1]}</span></div></div>`
     + (convo[mode].length ? '' : `<div class="csug"><em>大家常问</em>${m.sug.map(q => `<button type="button">${q}</button>`).join('')}</div>`)
-    + convo[mode].map(x => row(x.role === 'user' ? 'u' : 'a', fmt(x.content))).join('');
+    + convo[mode].map(x => row(x.role === 'user' ? 'u' : 'a', x.role === 'user' ? fmt(x.content) : answer(x.content, x.web))).join('');
   log.scrollTop = log.scrollHeight;
 }
+// An answer from the web is labelled as unchecked by this site, with its sources under it.
+const answer = (text, web) => web?.length
+  ? `<div class="cweb">本站资料没有这一条，以下来自网上讨论，<b>本站未核对</b>，请自行判断</div>${fmt(text)}<div class="csrc">来源：${web.map((w, i) => `<a href="${esc(w.url)}" target="_blank" rel="noopener">[${i + 1}] ${esc(w.title)}<i>${esc(w.site)}</i></a>`).join('')}</div>`
+  : fmt(text);
 const row = (cls, html) => `<div class="cr ${cls}">${cls === 'a' ? `<span class="cav sm${MODES[mode].gold ? ' gold' : ''}">${MODES[mode].av}</span>` : ''}<div class="cm ${cls}">${html}</div></div>`;
 function bubble(cls, html) {
   log.insertAdjacentHTML('beforeend', row(cls, html));
@@ -82,12 +86,14 @@ async function ask(q) {
   bubble('u', fmt(q));
   msgs.push({ role: 'user', content: q });
   const out = bubble('a', '<i class="cdots"><b></b><b></b><b></b></i>');
-  let text = '', fb = null;
+  let text = '', fb = null, web = null;   // web: sources when the answer comes from a web search
   const t0 = Date.now();
   // When DeepSeek is overloaded it queues the request and sends nothing; stop waiting if no text in 30 s.
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 30000);
+  const ctl = new AbortController();
+  let timer = setTimeout(() => ctl.abort(), 30000);
   try {
-    const body = { messages: msgs.slice(-10) };   // the server keeps only the last 10 and rejects over 20
+    // the server keeps only the last 10 and rejects over 20; only the answers' text goes back, not labels or sources
+    const body = { messages: msgs.slice(-10).map(x => ({ role: x.role, content: x.content })) };
     if (m === 'script' && scriptId) body.script = scriptId;
     const r = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `出错了（${r.status}）`);
@@ -107,12 +113,17 @@ async function ask(q) {
         const j = JSON.parse(data);
         if (j.error) throw new Error(j.error);
         if (j.reset) { text = ''; fb = j.reset; out.innerHTML = '<i class="cdots"><b></b><b></b><b></b></i>'; continue; }   // the model stalled; the next one starts over
+        if (j.searching) {   // not in this site's notes: the server is searching the web, which takes a few more seconds
+          clearTimeout(timer); timer = setTimeout(() => ctl.abort(), 30000); text = '';   // drop anything shown before the search
+          out.innerHTML = '<span class="cwait">本站资料里没有，正在联网查找…</span><i class="cdots"><b></b><b></b><b></b></i>'; continue;
+        }
+        if (j.web) { web = j.web; continue; }
         const piece = j.choices?.[0]?.delta?.content;
-        if (piece) { clearTimeout(timer); text += piece; out.innerHTML = fmt(text); log.scrollTop = log.scrollHeight; }
+        if (piece) { clearTimeout(timer); text += piece; out.innerHTML = answer(text, web); log.scrollTop = log.scrollHeight; }
       }
     }
     if (!text) throw new Error('没有收到回答，请再问一次');
-    msgs.push({ role: 'assistant', content: text });
+    msgs.push(web?.length ? { role: 'assistant', content: text, web } : { role: 'assistant', content: text });
   } catch (e) {
     msgs.pop();   // drop the unanswered question so the next request stays well formed
     out.classList.add('err');
