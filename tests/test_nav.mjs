@@ -12,7 +12,7 @@ await context.route('https://boardgame.leisurecat.cloud/**', route => route.fulf
 const page = await context.newPage();
 page.on('pageerror', e => errors.push(e.message));
 async function nav(p, label) {
-  const button = p.locator('.nav-back');
+  const button = p.locator('.nav-back:not(.rate-nav)');
   await button.waitFor({ state: 'visible' });
   assert.equal(await button.innerText(), label);
   await p.evaluate(() => window.scrollTo(0, 0));
@@ -32,7 +32,7 @@ async function nav(p, label) {
 }
 async function homeAndRejoin(code) {
   await nav(page, '‹ 首页');
-  await page.locator('.nav-back').click();
+  await page.locator('.nav-back:not(.rate-nav)').click();
   await nav(page, '‹ 全部游戏');
   await page.locator(`[data-act="rejoin"][data-code="${code}"]`).click();
   await page.waitForSelector('.who-tag.mm');
@@ -40,7 +40,7 @@ async function homeAndRejoin(code) {
 try {
   await page.goto(base);
   await nav(page, '‹ 全部游戏');
-  assert.equal(await page.locator('.nav-back').getAttribute('href'), 'https://boardgame.leisurecat.cloud');
+  assert.equal(await page.locator('.nav-back:not(.rate-nav)').getAttribute('href'), 'https://boardgame.leisurecat.cloud');
   await page.screenshot({ path: `${out}/nav_tl_landing.png` });
   await page.click('[data-act="create"]');
   await page.waitForSelector('.who-tag.mm');
@@ -68,7 +68,7 @@ try {
   await pro.goto(new URL(`/?r=${code}&v=1`, base).href);
   await pro.waitForSelector('.who-tag.view');
   await nav(pro, '‹ 首页');
-  await pro.locator('.nav-back').click();
+  await pro.locator('.nav-back:not(.rate-nav)').click();
   await pro.fill('#joinCode', code);
   // A separate context tests a protagonist without the saved Mastermind key.
   const viewerContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -79,7 +79,7 @@ try {
   await viewer.click('[data-act="join"]');
   await viewer.waitForSelector('.who-tag.view');
   await nav(viewer, '‹ 首页');
-  await viewer.locator('.nav-back').click();
+  await viewer.locator('.nav-back:not(.rate-nav)').click();
   await viewer.fill('#joinCode', code);
   await viewer.click('[data-act="join"]');
   await viewer.waitForSelector('.vboard');
@@ -100,7 +100,7 @@ try {
   for (const file of readdirSync(new URL('../public/', import.meta.url)).filter(f => f.endsWith('.html') && f !== 'index.html')) {
     await page.goto(new URL(file, base).href);
     await nav(page, '‹ 返回');
-    assert.equal(await page.locator('.nav-back').getAttribute('href'), '/');
+    assert.equal(await page.locator('.nav-back:not(.rate-nav)').getAttribute('href'), '/');
     if (file === 'guide.html') await page.screenshot({ path: `${out}/nav_tl_guide.png` });
     if (file === 'scripts.html') {
       await page.click('[data-act="spoil"]');
@@ -108,7 +108,7 @@ try {
       await page.click('.sc-item >> text=初学者剧本');
       await nav(page, '‹ 返回');
     }
-    await page.locator('.nav-back').click();
+    await page.locator('.nav-back:not(.rate-nav)').click();
     await nav(page, '‹ 全部游戏');
   }
   assert.deepEqual(errors, []);
