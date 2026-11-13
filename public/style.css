@@ -564,3 +564,56 @@ footer a{color:inherit;text-decoration:underline}
 .csrc a{display:block;color:#c8b6ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .csrc i{margin-left:6px;font-style:normal;color:var(--ink2);opacity:.7}
 .cwait{display:block;margin-bottom:4px;font:500 12.5px var(--sans);color:var(--ink2)}
+/* 5-minute teach page (teach.html): a script to read aloud, terms that open a note, one-tap questions to the rules assistant */
+.teach .tlead{margin:14px 2px 8px;font:500 14px/1.7 var(--sans);color:var(--ink2)}
+.teach .tlead b{color:var(--gold2);text-decoration:underline dotted;text-underline-offset:3px}
+.tnav{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;margin:0 -12px;padding:8px 12px;background:rgba(17,13,22,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);scrollbar-width:none}
+.tnav::-webkit-scrollbar{display:none}
+.tnav a{flex:none;display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:14px;border:1px solid var(--line2);background:rgba(255,255,255,.04);color:var(--ink);font:600 13px var(--sans);text-decoration:none}
+.tnav a i{font:600 12px var(--num);font-style:normal;color:var(--gold)}
+.tpart{margin-top:12px;padding:2px 14px 14px;scroll-margin-top:52px}
+.tpart h2.h{margin:12px 0 6px}
+.tpart h2.h i{font:600 16px var(--num);font-style:normal;color:var(--gold);margin-right:8px}
+.tline{margin-top:9px;font:500 17px/1.85 var(--sans);color:var(--ink)}
+.tline b{color:var(--red2)}
+.term{display:inline;padding:0 2px;margin:0 1px;border:0;background:none;font:inherit;color:var(--gold2);font-weight:700;text-decoration:underline dotted 1.5px;text-underline-offset:4px;cursor:pointer;-webkit-tap-highlight-color:rgba(205,176,122,.2)}
+.ico{display:inline-block;object-fit:contain;border-radius:3px}
+.term .ico,.tlab .ico{height:1.35em;width:auto;max-width:2.8em;vertical-align:-.3em;margin-right:3px}
+.tasks{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line2)}
+.tasks em{width:100%;font:600 12px var(--sans);font-style:normal;color:var(--ink2)}
+.tq{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 12px;border-radius:17px;border:1px solid rgba(230,80,105,.45);background:rgba(196,42,67,.1);color:var(--red2);font:700 13.5px/1.4 var(--sans);text-align:left;cursor:pointer}
+.tq>span{color:var(--ink);font-weight:500}
+.tnote{margin-top:4px;font:500 13.5px/1.6 var(--sans);color:var(--ink2)}
+.tgo{display:flex;align-items:center;justify-content:center;margin-top:16px;text-decoration:none}
+.tgrid{margin-top:10px;padding:10px 12px 12px}
+.tgrid h3{font:900 14px var(--serif);letter-spacing:1px;color:var(--ink2)}
+.tgrid>div{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px;margin-top:8px}
+.tic{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px 7px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.04);font:500 12px/1.3 var(--sans);color:var(--ink);cursor:pointer}
+.tic .ico{height:46px;width:auto;max-width:70px}
+.tsheet{position:fixed;inset:0;z-index:60}
+.tsheet.hidden{display:none}
+.tsbg{position:absolute;inset:0;background:rgba(5,3,8,.6)}
+.tsbox{position:absolute;left:0;right:0;bottom:0;max-width:520px;max-height:88dvh;overflow:auto;margin:0 auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);border-radius:14px 14px 0 0;background:var(--bg2);border-top:3px solid var(--red);box-shadow:0 -8px 24px rgba(0,0,0,.5);animation:tsup .2s ease-out}
+@keyframes tsup{from{transform:translateY(30px);opacity:.4}}
+.tshd{display:flex;align-items:center;gap:12px}
+.tshd b{flex:1;font:900 20px var(--serif);letter-spacing:2px;color:var(--ink)}
+.ico.big{height:76px;width:auto;max-width:150px;flex:none}
+.tsx{width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.08);font-size:20px;color:var(--ink2);cursor:pointer}
+.tsbox p{margin-top:10px;font:500 15px/1.7 var(--sans);color:var(--ink)}
+.tsbox p em{display:block;font:600 12px var(--sans);font-style:normal;color:var(--red2);letter-spacing:1px}
+/* landing: entry to the teach page */
+.teachgo{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;text-decoration:none;color:var(--ink);border-color:rgba(205,176,122,.45);background:linear-gradient(180deg,rgba(205,176,122,.16),rgba(205,176,122,.06))}
+.teachgo .tg-i{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--red);color:#fff3d6;font:900 19px var(--serif);box-shadow:inset 0 0 0 2px var(--gold)}
+.teachgo b{display:block;font:900 16px var(--serif);letter-spacing:1px;color:var(--gold2)}
+.teachgo span{flex:1;font:500 12.5px/1.5 var(--sans);color:var(--ink2)}
+.teachgo i{font:600 22px var(--sans);font-style:normal;color:var(--gold2)}
+/* teach page: 注意事项, one collapsible note per easy-to-miss rule, answer written in */
+.tnotes{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.tni{border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.03)}
+.tni summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;font:700 15px/1.45 var(--sans);color:var(--ink);cursor:pointer;list-style:none}
+.tni summary::-webkit-details-marker{display:none}
+.tni summary::after{content:"＋";margin-left:auto;font-weight:500;color:var(--red2)}
+.tni[open] summary::after{content:"－"}
+.tni summary i{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff3d6;font:600 12px var(--num);font-style:normal}
+.tni p{margin:0 12px;padding-top:2px;font:500 15.5px/1.8 var(--sans);color:var(--ink)}
+.tni .tq{margin:8px 12px 12px;font-size:12.5px;min-height:30px}

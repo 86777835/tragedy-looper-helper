@@ -126,6 +126,7 @@ function landing() {
       <div class="join"><input id="joinCode" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="房间码"><button class="btn navy" data-act="join">进入</button></div>
       ${ui.err ? `<div class="err">${esc(ui.err)}</div>` : ''}
     </div>
+    <a class="card teachgo" href="teach"><span class="tg-i">讲</span><span><b>第一次玩？5 分钟讲规则</b>照着念就能开局，不懂的词点一下</span><i>›</i></a>
     <div class="tiles">
       <a class="card tile" href="scripts"><span class="ti">本</span><span><b>剧本库</b>剧作家专用·有剧透</span></a>
       <a class="card tile" href="guide"><span class="ti"><img src="img/guide.jpg" alt=""></span><span><b>规则介绍</b>流程 + 常见问题</span></a>

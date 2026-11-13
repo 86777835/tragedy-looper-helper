@@ -33,6 +33,8 @@ const $c = s => document.querySelector(s);
 const fab = $c('.cfab'), panel = $c('.cpanel'), log = $c('.clog'), form = $c('.cin'), box = form.querySelector('textarea'), sendBtn = form.querySelector('button');
 const open = on => { panel.classList.toggle('hidden', !on); fab.classList.toggle('hidden', on); if (on) box.focus(); };
 fab.onclick = () => open(true);
+// The teach page opens the panel and asks a question in one tap (always the rules mode, which knows no script).
+window.askRules = q => { if (mode !== 'rules') { mode = 'rules'; paint(); } open(true); ask(q); };
 $c('.cx').onclick = () => open(false);
 $c('.cmodes').onclick = e => { const b = e.target.closest('[data-m]'); if (b && !busy) { mode = b.dataset.m; paint(); } };
 form.onsubmit = e => { e.preventDefault(); ask(box.value); };
